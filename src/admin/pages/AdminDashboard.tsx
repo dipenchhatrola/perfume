@@ -14,9 +14,9 @@ import {
   LineChart,
   Legend,
 } from "recharts";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles } from "lucide-react";
+import { Sparkles, RefreshCw, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 
 /* -------------------- INTERFACES -------------------- */
 interface Order {
@@ -59,9 +59,9 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
-    todayRevenue: "$0",
+    todayRevenue: "₹0",
     todayOrders: 0,
-    avgOrderValue: "$0",
+    avgOrderValue: "₹0",
     totalOrders: 0,
     totalRevenue: 0,
     deliveredOrders: 0,
@@ -71,8 +71,51 @@ export default function Dashboard() {
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(30); // seconds
+  const [refreshStatus, setRefreshStatus] = useState<'idle' | 'refreshing' | 'success'>('idle');
+  const [secondsUntilRefresh, setSecondsUntilRefresh] = useState(30);
+  
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastFetchTimeRef = useRef<Date>(new Date());
 
   const COLORS = ["#6366f1", "#fb7185", "#facc15", "#10b981", "#8b5cf6", "#f59e0b"];
+
+  // Countdown Timer Effect
+  useEffect(() => {
+    if (autoRefreshEnabled) {
+      // Reset countdown on interval change or refresh
+      setSecondsUntilRefresh(refreshInterval);
+      
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
+      
+      countdownIntervalRef.current = setInterval(() => {
+        setSecondsUntilRefresh(prev => {
+          if (prev <= 1) {
+            // Trigger refresh when countdown reaches 0
+            fetchOrdersAndStats();
+            return refreshInterval;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
+      setSecondsUntilRefresh(refreshInterval);
+    }
+    
+    return () => {
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
+    };
+  }, [autoRefreshEnabled, refreshInterval]);
 
   // Generate sales data from orders
   const generateSalesData = (ordersData: Order[]) => {
@@ -155,8 +198,10 @@ export default function Dashboard() {
   };
 
   // Fetch orders from localStorage and calculate stats
-  const fetchOrdersAndStats = () => {
+  const fetchOrdersAndStats = useCallback(async () => {
     try {
+      setRefreshStatus('refreshing');
+      
       // Get orders from localStorage
       const savedOrders = localStorage.getItem('perfume_orders');
       let ordersData: Order[] = [];
@@ -252,7 +297,7 @@ export default function Dashboard() {
 
       setRecentOrders(recent.map(order => ({
         name: order.items?.[0]?.name || 'Product',
-        price: `$${order.total}`,
+        price: `₹${order.total}`,
         orderId: order.orderId,
         status: order.status,
         date: order.date
@@ -260,17 +305,37 @@ export default function Dashboard() {
 
       // Update dashboard stats
       setDashboardStats({
-        todayRevenue: `$${todayRevenue.toLocaleString()}`,
+        todayRevenue: `₹${todayRevenue.toLocaleString()}`,
         todayOrders: todayOrdersCount,
-        avgOrderValue: `$${avgOrderValue.toFixed(0)}`,
+        avgOrderValue: `₹${avgOrderValue.toFixed(0)}`,
         totalOrders,
         totalRevenue,
         deliveredOrders,
         pendingOrders
       });
 
+      // Update last updated time
+      const now = new Date();
+      lastFetchTimeRef.current = now;
+      setLastUpdated(now.toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        second: '2-digit'
+      }));
+
+      // Reset countdown
+      setSecondsUntilRefresh(refreshInterval);
+
+      setRefreshStatus('success');
+      
+      // Reset success status after 2 seconds
+      setTimeout(() => {
+        setRefreshStatus('idle');
+      }, 2000);
+
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      setRefreshStatus('idle');
 
       // Fallback sample data
       const today = new Date();
@@ -299,16 +364,42 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [refreshInterval]);
 
   // Initialize on component mount
   useEffect(() => {
     fetchOrdersAndStats();
+    
+    // Listen for storage changes (real-time updates)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'perfume_orders') {
+        fetchOrdersAndStats();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [fetchOrdersAndStats]);
 
-    // Refresh data every 30 seconds
-    const interval = setInterval(fetchOrdersAndStats, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  // Manual refresh function
+  const handleManualRefresh = () => {
+    fetchOrdersAndStats();
+  };
+
+  // Toggle auto refresh
+  const toggleAutoRefresh = () => {
+    setAutoRefreshEnabled(!autoRefreshEnabled);
+  };
+
+  // Change refresh interval
+  const handleIntervalChange = (interval: number) => {
+    setRefreshInterval(interval);
+    setSecondsUntilRefresh(interval);
+  };
 
   // Navigate to orders page
   const navigateToOrders = () => {
@@ -323,12 +414,19 @@ export default function Dashboard() {
   // Format currency
   const formatCurrency = (value: number) => {
     if (value >= 1000000) {
-      return `$${(value / 1000000).toFixed(1)}M`;
+      return `₹${(value / 1000000).toFixed(1)}M`;
     }
     if (value >= 1000) {
-      return `$${(value / 1000).toFixed(1)}k`;
+      return `₹${(value / 1000).toFixed(1)}k`;
     }
-    return `$${value}`;
+    return `₹${value}`;
+  };
+
+  // Format seconds to mm:ss
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   // Custom tooltip for sales chart
@@ -347,7 +445,7 @@ export default function Dashboard() {
                 <span className="text-sm text-gray-600">{entry.name}:</span>
               </div>
               <span className="text-sm font-semibold text-gray-800 ml-4">
-                {entry.name === 'Revenue' ? `$${entry.value.toLocaleString()}` : entry.value}
+                {entry.name === 'Revenue' ? `₹${entry.value.toLocaleString()}` : entry.value}
               </span>
             </div>
           ))}
@@ -366,7 +464,7 @@ export default function Dashboard() {
             {payload[0].name}
           </p>
           <p className="text-sm text-gray-600">
-            Revenue: <span className="font-semibold">${payload[0].value.toLocaleString()}</span>
+            Revenue: <span className="font-semibold">₹{payload[0].value.toLocaleString()}</span>
           </p>
         </div>
       );
@@ -423,29 +521,42 @@ export default function Dashboard() {
             Real-time analytics and insights
           </motion.p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={fetchOrdersAndStats}
-            className="px-4 py-2 bg-white text-gray-700 rounded-xl hover:bg-gray-50 flex items-center gap-2 shadow-sm hover:shadow-md transition-all border border-gray-200 text-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Refresh
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={navigateToOrders}
-            className="px-4 md:px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 flex items-center gap-2 shadow-lg hover:shadow-xl transition-all text-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            View All Orders
-          </motion.button>
+        
+        {/* AUTO-REFRESH CONTROLS */}
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+          <div className="flex flex-wrap gap-2">            
+            {/* Manual Refresh Button */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleManualRefresh}
+              disabled={refreshStatus === 'refreshing'}
+              className={`px-4 py-2 bg-white text-gray-700 rounded-xl hover:bg-gray-50 flex items-center gap-2 shadow-sm hover:shadow-md transition-all border border-gray-200 text-sm ${
+                refreshStatus === 'refreshing' ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              <motion.div
+                animate={refreshStatus === 'refreshing' ? { rotate: 360 } : {}}
+                transition={refreshStatus === 'refreshing' ? { duration: 1, repeat: Infinity, ease: "linear" } : {}}
+              >
+                <RefreshCw size={14} />
+              </motion.div>
+              {refreshStatus === 'refreshing' ? 'Refreshing...' : 'Refresh Now'}
+            </motion.button>
+            
+            {/* View Orders Button */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={navigateToOrders}
+              className="px-4 md:px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 flex items-center gap-2 shadow-lg hover:shadow-xl transition-all text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              View All Orders
+            </motion.button>
+          </div>
         </div>
       </motion.div>
 
@@ -493,7 +604,7 @@ export default function Dashboard() {
           },
           {
             title: "Total Revenue",
-            value: `$${dashboardStats.totalRevenue.toLocaleString()}`,
+            value: `₹${dashboardStats.totalRevenue.toLocaleString()}`,
             color: "from-amber-100 to-orange-100 border-amber-200",
             icon: (
               <div className="p-2 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg">
@@ -688,14 +799,14 @@ export default function Dashboard() {
           <div className="mt-4 pt-4 border-t border-gray-100">
             <div className="flex flex-wrap justify-between items-center text-sm">
               <div className="text-gray-600">
-                Total Revenue: <span className="font-semibold">${salesData.reduce((sum, day) => sum + day.revenue, 0).toLocaleString()}</span>
+                Total Revenue: <span className="font-semibold">₹{salesData.reduce((sum, day) => sum + day.revenue, 0).toLocaleString()}</span>
               </div>
               <div className="text-gray-600">
                 Total Orders: <span className="font-semibold">{salesData.reduce((sum, day) => sum + day.orders, 0)}</span>
               </div>
               <div className="text-gray-600">
                 Average Order: <span className="font-semibold">
-                  ${salesData.reduce((sum, day) => sum + day.orders, 0) > 0
+                  ₹{salesData.reduce((sum, day) => sum + day.orders, 0) > 0
                     ? Math.round(salesData.reduce((sum, day) => sum + day.revenue, 0) / salesData.reduce((sum, day) => sum + day.orders, 0))
                     : 0
                   }
@@ -760,11 +871,11 @@ export default function Dashboard() {
                         style={{ backgroundColor: COLORS[index % COLORS.length] }}
                       />
                       <span className="text-sm text-gray-700 truncate">
-                        {/* {category.name} */} Total Revenue
+                        {category.name}
                       </span>
                     </div>
                     <div className="text-sm font-semibold text-gray-800 flex-shrink-0 ml-2">
-                      ${category.value.toLocaleString()}
+                      ₹{category.value.toLocaleString()}
                     </div>
                   </motion.div>
                 ))}
@@ -781,7 +892,7 @@ export default function Dashboard() {
           <div className="mt-4 pt-4 border-t border-gray-100">
             <div className="text-sm text-gray-600">
               Total: <span className="font-semibold">
-                ${categoryData.reduce((sum, cat) => sum + cat.value, 0).toLocaleString()}
+                ₹{categoryData.reduce((sum, cat) => sum + cat.value, 0).toLocaleString()}
               </span>
             </div>
           </div>

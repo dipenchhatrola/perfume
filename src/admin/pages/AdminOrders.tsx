@@ -517,7 +517,7 @@ export default function Orders() {
             },
             {
               label: "Total Revenue",
-              value: `$${stats.totalRevenue.toLocaleString()}`,
+              value: `₹${stats.totalRevenue.toLocaleString()}`,
               color: "emerald",
               icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
               gradient: "from-emerald-500 to-green-500"
@@ -676,7 +676,7 @@ export default function Orders() {
                           whileHover={{ scale: 1.05 }}
                           className="text-lg font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent"
                         >
-                          ${order.total.toLocaleString()}
+                          ₹{order.total.toLocaleString()}
                         </motion.div>
                       </td>
                       <td className="px-8 py-5 whitespace-nowrap">
@@ -890,12 +890,12 @@ export default function Orders() {
                               </div>
                               <div className="flex items-center gap-8">
                                 <div className="text-right">
-                                  <p className="text-base font-medium text-gray-900">${item.price.toLocaleString()}</p>
+                                  <p className="text-base font-medium text-gray-900">₹{item.price.toLocaleString()}</p>
                                   <p className="text-sm text-gray-500 mt-1">Qty: {item.quantity}</p>
                                 </div>
                                 <div className="text-right">
                                   <p className="text-lg font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                                    ${(item.price * item.quantity).toLocaleString()}
+                                    ₹{(item.price * item.quantity).toLocaleString()}
                                   </p>
                                 </div>
                               </div>
@@ -930,7 +930,7 @@ export default function Orders() {
                             >
                               <span className="text-sm text-gray-600">{item.label}</span>
                               <span className="text-sm font-medium text-gray-900">
-                                ${item.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                ₹{item.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             </motion.div>
                           ))}
@@ -943,7 +943,7 @@ export default function Orders() {
                             <div className="flex justify-between items-center">
                               <span className="text-lg font-semibold text-gray-900">Total</span>
                               <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                                ${(selectedOrder.total * 1.18).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                ₹{(selectedOrder.total * 1.18).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             </div>
                           </motion.div>

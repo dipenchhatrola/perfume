@@ -905,18 +905,6 @@ const Orders: React.FC = () => {
               </div>
             </div>
 
-            {/* Show All Orders Button */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={fastTransition}
-              onClick={clearFilters}
-              className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition flex items-center justify-center font-medium mb-4"
-            >
-              <Package size={18} className="mr-2" />
-              Show All Orders ({orders.length})
-            </motion.button>
-
             {/* Shop More Button */}
             <Link
               to="/products"
@@ -959,15 +947,6 @@ const Orders: React.FC = () => {
                 </div>
                 
                 <div className="flex gap-4">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={clearFilters}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium whitespace-nowrap"
-                  >
-                    Show All Orders
-                  </motion.button>
-                  
                   <div className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg">
                     <span className="text-gray-600 text-sm">Show:</span>
                     <span className="font-medium">{ordersPerPage}</span>
@@ -1012,9 +991,9 @@ const Orders: React.FC = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={clearFilters}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                    className="px-6 py-3 w-500 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                   >
-                    सभी ऑर्डर्स दिखाएं
+                    Show All Orders
                   </motion.button>
                 </motion.div>
               ) : (
@@ -1061,7 +1040,7 @@ const Orders: React.FC = () => {
                           {/* Section 2: Price */}
                           <div className="md:w-[15%] w-full mt-2 md:mt-0">
                             <span className="text-[14px] text-[#212121]">
-                              ${calculateTotalWithTax(order.total).toFixed(2)}
+                              ₹{calculateTotalWithTax(order.total).toFixed(2)}
                             </span>
                           </div>
 
@@ -1127,10 +1106,6 @@ const Orders: React.FC = () => {
                       className="bg-white border border-gray-200 mt-6 p-6 rounded-lg"
                     >
                       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="text-sm text-gray-600">
-                          पेज {currentPage} का {totalPages} - कुल {filteredOrders.length} ऑर्डर्स
-                        </div>
-                        
                         <div className="flex items-center gap-2">
                           {/* Previous Button */}
                           <motion.button
@@ -1331,8 +1306,8 @@ const Orders: React.FC = () => {
                           <p className="text-sm text-gray-500">Quantity: {product.quantity}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold text-lg">${(product.price * product.quantity).toFixed(2)}</p>
-                          <p className="text-gray-500">${product.price.toFixed(2)} each</p>
+                          <p className="font-semibold text-lg">₹{(product.price * product.quantity).toFixed(2)}</p>
+                          <p className="text-gray-500">₹{product.price.toFixed(2)} each</p>
                         </div>
                       </motion.div>
                     ))}
@@ -1355,7 +1330,7 @@ const Orders: React.FC = () => {
                       className="flex justify-between"
                     >
                       <span className="text-gray-600">Subtotal</span>
-                      <span>${selectedOrder.total.toFixed(2)}</span>
+                      <span>₹{selectedOrder.total.toFixed(2)}</span>
                     </motion.div>
                     <motion.div 
                       initial={{ opacity: 0, x: -10 }}
@@ -1364,7 +1339,7 @@ const Orders: React.FC = () => {
                       className="flex justify-between"
                     >
                       <span className="text-gray-600">Tax (18% GST)</span>
-                      <span>${calculateTax(selectedOrder.total).toFixed(2)}</span>
+                      <span>₹{calculateTax(selectedOrder.total).toFixed(2)}</span>
                     </motion.div>
                     <motion.div 
                       initial={{ opacity: 0, x: -10 }}
@@ -1383,7 +1358,7 @@ const Orders: React.FC = () => {
                     >
                       <span className="font-semibold text-lg">Total</span>
                       <span className="font-bold text-2xl">
-                        ${calculateTotalWithTax(selectedOrder.total).toFixed(2)}
+                        ₹{calculateTotalWithTax(selectedOrder.total).toFixed(2)}
                       </span>
                     </motion.div>
                   </div>

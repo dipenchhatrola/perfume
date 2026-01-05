@@ -484,9 +484,9 @@ const ProductsPage = () => {
                         </div>
                         <motion.span 
                           whileHover={{ scale: 1.1 }}
-                          className="font-serif italic text-lg"
+                          className="font text-lg"
                         >
-                          ${product.price}
+                          ₹{product.price}
                         </motion.span>
                       </div>
                       

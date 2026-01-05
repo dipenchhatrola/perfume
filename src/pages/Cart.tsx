@@ -201,8 +201,8 @@ const CartPage: React.FC = () => {
                       whileHover={{ scale: 1.02 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <p className="text-2xl font-serif">${(item.price * item.quantity).toFixed(2)}</p>
-                      <p className="text-gray-500">${item.price} each</p>
+                      <p className="text-2xl font">₹{(item.price * item.quantity).toFixed(2)}</p>
+                      <p className="text-gray-500">₹{item.price} each</p>
                     </motion.div>
                   </div>
                 </div>
@@ -252,9 +252,9 @@ const CartPage: React.FC = () => {
             
             <div className="space-y-4 mb-6">
               {[
-                { label: 'Subtotal', value: `$${totalPrice.toFixed(2)}` },
+                { label: 'Subtotal', value: `₹${totalPrice.toFixed(2)}` },
                 { label: 'Shipping', value: 'Free' },
-                { label: 'Tax', value: `$${(totalPrice * 0.1).toFixed(2)}` }
+                { label: 'Tax', value: `₹${(totalPrice * 0.1).toFixed(2)}` }
               ].map((item, index) => (
                 <motion.div
                   key={item.label}
@@ -274,7 +274,7 @@ const CartPage: React.FC = () => {
                 className="border-t pt-4 flex justify-between text-lg font-bold"
               >
                 <span>Total</span>
-                <span>${(totalPrice * 1.1).toFixed(2)}</span>
+                <span>₹{(totalPrice * 1.1).toFixed(2)}</span>
               </motion.div>
             </div>
             

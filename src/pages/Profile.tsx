@@ -281,6 +281,7 @@ const Profile: React.FC = () => {
   ];
 
   const getStatusIcon = (status: string) => {
+    if (!status) return <Clock className="text-amber-500" size={18} />;
     switch (status.toLowerCase()) {
       case 'delivered': return <CheckCircle className="text-emerald-500" size={18} />;
       case 'cancelled': return <XCircle className="text-rose-500" size={18} />;

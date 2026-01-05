@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, User, Phone, Check, Facebook, Twitter, Sparkles, Gift, Shield, Truck, Star, Clock } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, User, Phone, Check, Facebook, Sparkles, Gift, Shield, Truck, Star, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import { FcGoogle } from "react-icons/fc";
+
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -16,10 +18,12 @@ const Register: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
   const [socialRegister, setSocialRegister] = useState({
     facebook: false,
-    twitter: false,
+    google: false,
   });
+
   const [activeField, setActiveField] = useState<string | null>(null);
 
   const navigate = useNavigate();
@@ -31,10 +35,10 @@ const Register: React.FC = () => {
     });
   };
 
-  const handleSocialRegister = (platform: 'facebook' | 'twitter') => {
+  const handleSocialRegister = (platform: 'facebook' | 'google') => {
     setSocialRegister(prev => ({
       facebook: platform === 'facebook',
-      twitter: platform === 'twitter'
+      google: platform === 'google'
     }));
 
     toast.success(`Registering with ${platform.charAt(0).toUpperCase() + platform.slice(1)}...`);
@@ -59,10 +63,18 @@ const Register: React.FC = () => {
     }
 
     const existingUsers = getAllUsers();
-    const userExists = existingUsers.some((user: any) =>
-      user.email.toLowerCase() === formData.email.toLowerCase() ||
-      user.username.toLowerCase() === formData.username.toLowerCase()
-    );
+    const userExists = existingUsers.some((user: any) => {
+      // Check if user object exists and has email/username properties
+      if (!user) return false;
+
+      const userEmail = user.email || '';
+      const userUsername = user.username || '';
+
+      return (
+        userEmail.toLowerCase() === formData.email.toLowerCase() ||
+        userUsername.toLowerCase() === formData.username.toLowerCase()
+      );
+    });
 
     if (userExists) {
       toast.error('User with this email or username already exists');
@@ -92,7 +104,7 @@ const Register: React.FC = () => {
       const updatedUsers = [...existingUsers, userData];
 
       // Save to localStorage
-      localStorage.setItem('perfume_users', JSON.stringify(updatedUsers));
+      //localStorage.setItem('perfume_users', JSON.stringify(updatedUsers));
       localStorage.setItem('perfume_user', JSON.stringify(userData));
       localStorage.setItem('isLoggedIn', 'true');
 
@@ -113,11 +125,15 @@ const Register: React.FC = () => {
     try {
       const usersData = localStorage.getItem('perfume_users');
       if (usersData) {
-        return JSON.parse(usersData);
+        const parsed = JSON.parse(usersData);
+        // Ensure we always return an array
+        return Array.isArray(parsed) ? parsed : [];
       }
       return [];
     } catch (error) {
       console.error('Error loading users:', error);
+      // Clear corrupted data
+      localStorage.removeItem('perfume_users');
       return [];
     }
   };
@@ -284,23 +300,26 @@ const Register: React.FC = () => {
                   </motion.button>
 
                   <motion.button
-                    onClick={() => handleSocialRegister('twitter')}
-                    className={`flex items-center justify-center w-full py-4 rounded-xl border transition-all duration-300 ${socialRegister.twitter
-                      ? 'bg-blue-400 text-white border-blue-400'
-                      : 'bg-gradient-to-r from-gray-50 to-white text-gray-700 border-gray-300 hover:border-blue-300'
+                    onClick={() => handleSocialRegister('google')}
+                    className={`flex items-center justify-center w-full py-4 rounded-xl border transition-all duration-300 relative overflow-hidden
+                        ${socialRegister.google
+                        ? 'bg-white text-gray-800 border-gray-300 shadow-md'
+                        : 'bg-gradient-to-r from-gray-50 to-white text-gray-700 border-gray-300 hover:border-red-400'
                       }`}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <Twitter size={20} className="mr-3" />
-                    <span className="font-semibold">TWITTER</span>
+                    <FcGoogle size={22} className="mr-3" />
+                    <span className="font-semibold">GOOGLE</span>
+
                     <motion.div
-                      className={`ml-3 w-6 h-6 rounded-full border flex items-center justify-center ${socialRegister.twitter ? 'bg-white border-white' : 'border-gray-400'
-                        }`}
-                      animate={socialRegister.twitter ? { scale: [1, 1.2, 1] } : {}}
+                      className={`ml-3 w-6 h-6 rounded-full border flex items-center justify-center
+                        ${socialRegister.google ? 'bg-green-500 border-green-500' : 'border-gray-400'}
+                      `}
+                      animate={socialRegister.google ? { scale: [1, 1.2, 1] } : {}}
                       transition={{ duration: 0.3 }}
                     >
-                      {socialRegister.twitter && <Check size={14} className="text-blue-400" />}
+                      {socialRegister.google && <Check size={14} className="text-white" />}
                     </motion.div>
                   </motion.button>
                 </div>

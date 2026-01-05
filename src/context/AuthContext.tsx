@@ -64,15 +64,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const register = async (userData: RegisterData) => {
     try {
       setIsLoading(true);
-      const response = await authService.register(userData);
-      
-      setToken(response.token);
-      setUser(response.user);
-      
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-      
-      console.log('Registration successful! Welcome!');
+
+      await authService.register(userData);
+
+      console.log('Registration successful, please login');
     } catch (error) {
       console.error('Registration failed');
       throw error;
