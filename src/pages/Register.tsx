@@ -6,6 +6,8 @@ import { motion } from 'framer-motion';
 import { FcGoogle } from "react-icons/fc";
 
 
+const API_BASE_URL = 'http://localhost:5000/api';
+
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
@@ -35,13 +37,26 @@ const Register: React.FC = () => {
     });
   };
 
-  const handleSocialRegister = (platform: 'facebook' | 'google') => {
+  const handleSocialRegister = async (platform: 'facebook' | 'google') => {
     setSocialRegister(prev => ({
       facebook: platform === 'facebook',
       google: platform === 'google'
     }));
 
-    toast.success(`Registering with ${platform.charAt(0).toUpperCase() + platform.slice(1)}...`);
+    try {
+      // Redirect to backend social auth endpoint
+      window.location.href = `${API_BASE_URL}/auth/${platform}`;
+
+      // OR if you want to handle it in the same page:
+      // const response = await fetch(`${API_BASE_URL}/auth/${platform}`, {
+      //   method: 'POST',
+      //   credentials: 'include' // For cookies if using sessions
+      // });
+
+      toast.success(`Redirecting to ${platform} authentication...`);
+    } catch (error) {
+      toast.error(`Failed to connect with ${platform}`);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,81 +77,65 @@ const Register: React.FC = () => {
       return;
     }
 
-    const existingUsers = getAllUsers();
-    const userExists = existingUsers.some((user: any) => {
-      // Check if user object exists and has email/username properties
-      if (!user) return false;
-
-      const userEmail = user.email || '';
-      const userUsername = user.username || '';
-
-      return (
-        userEmail.toLowerCase() === formData.email.toLowerCase() ||
-        userUsername.toLowerCase() === formData.username.toLowerCase()
-      );
-    });
-
-    if (userExists) {
-      toast.error('User with this email or username already exists');
-      return;
-    }
-
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          username: formData.username,
+          password: formData.password,
+          phone: formData.phone,
+        }),
+      });
 
-      const userData = {
-        id: Date.now().toString(),
-        firstName: formData.username.split(' ')[0] || formData.username,
-        lastName: formData.username.split(' ')[1] || '',
-        email: formData.email,
-        username: formData.username,
-        password: formData.password, // Note: Real app me hash karna chahiye
-        phone: formData.phone,
-        joinDate: new Date().toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit'
-        }) // Format: YYYY-MM-DD
-      };
+      const result = await response.json(); // Rename to result
 
-      const existingUsers = getAllUsers();
-      const updatedUsers = [...existingUsers, userData];
+      if (!response.ok) {
+        throw new Error(result.message || 'Registration failed');
+      }
 
-      // Save to localStorage
-      //localStorage.setItem('perfume_users', JSON.stringify(updatedUsers));
-      localStorage.setItem('perfume_user', JSON.stringify(userData));
-      localStorage.setItem('isLoggedIn', 'true');
+      // ✅ CORRECTION HERE: Access data from result.data
+      if (result.success && result.data) {
+        // Save user data and token in localStorage
+        localStorage.setItem('perfume_user', JSON.stringify(result.data.user));
+        localStorage.setItem('auth_token', result.data.token);
+        localStorage.setItem('isLoggedIn', 'true');
 
-      // Success animation
-      toast.success('Registration successful! Welcome to PERFUME.');
+        // Success animation
+        toast.success(result.message || 'Registration successful! Welcome to PERFUME.');
 
-      navigate('/profile', { replace: true });
+        navigate('/profile', { replace: true });
+      } else {
+        throw new Error(result.message || 'Registration failed');
+      }
 
-      // Reload not needed, data will sync automatically
-    } catch (error) {
-      toast.error('Registration failed. Please try again.');
+    } catch (error: any) {
+      toast.error(error.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const getAllUsers = () => {
-    try {
-      const usersData = localStorage.getItem('perfume_users');
-      if (usersData) {
-        const parsed = JSON.parse(usersData);
-        // Ensure we always return an array
-        return Array.isArray(parsed) ? parsed : [];
-      }
-      return [];
-    } catch (error) {
-      console.error('Error loading users:', error);
-      // Clear corrupted data
-      localStorage.removeItem('perfume_users');
-      return [];
-    }
-  };
+  // const getAllUsers = () => {
+  //   try {
+  //     const usersData = localStorage.getItem('perfume_users');
+  //     if (usersData) {
+  //       const parsed = JSON.parse(usersData);
+  //       // Ensure we always return an array
+  //       return Array.isArray(parsed) ? parsed : [];
+  //     }
+  //     return [];
+  //   } catch (error) {
+  //     console.error('Error loading users:', error);
+  //     // Clear corrupted data
+  //     localStorage.removeItem('perfume_users');
+  //     return [];
+  //   }
+  // };
 
   const passwordStrength = (password: string) => {
     let strength = 0;
@@ -456,36 +455,6 @@ const Register: React.FC = () => {
                       )}
                     </motion.button>
                   </motion.div>
-
-                  {/* Password Strength Indicator */}
-                  {formData.password && (
-                    <motion.div
-                      className="mt-4"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm text-gray-600">Password strength:</span>
-                        <span className={`text-sm font-semibold ${strength === 4 ? 'text-green-600' :
-                          strength === 3 ? 'text-yellow-600' :
-                            strength === 2 ? 'text-orange-600' :
-                              'text-red-600'
-                          }`}>
-                          {strengthText[strength - 1] || 'None'}
-                        </span>
-                      </div>
-                      <div className="flex space-x-2">
-                        {[0, 1, 2, 3].map((index) => (
-                          <div
-                            key={index}
-                            className={`h-2 flex-1 rounded-full transition-all duration-500 ${index < strength ? strengthColors[strength - 1] : 'bg-gray-200'
-                              }`}
-                          />
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
                 </motion.div>
 
                 {/* Confirm Password Field */}

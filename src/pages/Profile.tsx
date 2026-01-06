@@ -30,13 +30,35 @@ const Profile: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('perfume_user');
-    if (savedUser) {
-      const userData = JSON.parse(savedUser);
+    // Pehle 'perfume_user' check karo, fir 'user' check karo
+    const savedPerfumeUser = localStorage.getItem('perfume_user');
+    const savedUser = localStorage.getItem('user');
+
+    let userData = null;
+
+    if (savedPerfumeUser) {
+      userData = JSON.parse(savedPerfumeUser);
+    } else if (savedUser) {
+      const authUser = JSON.parse(savedUser);
+      // Convert authUser format to perfume_user format
+      const nameParts = authUser.name.split(' ');
+      userData = {
+        id: authUser.id,
+        firstName: nameParts[0] || 'User',
+        lastName: nameParts.slice(1).join(' ') || '',
+        email: authUser.email,
+        phone: authUser.phone,
+        password: '', // Not stored in authUser
+        role: authUser.role,
+        joinDate: new Date().toISOString().split('T')[0]
+      };
+      // Save it for future
+      localStorage.setItem('perfume_user', JSON.stringify(userData));
+    }
+
+    if (userData) {
       setUser(userData);
       setEditedUser(userData);
-
-      // Load user-specific stats
       loadUserStats(userData);
     } else {
       navigate('/login');
@@ -163,10 +185,18 @@ const Profile: React.FC = () => {
   };
 
   const handleLogout = () => {
+    // Saare user-related items clear karo
     localStorage.removeItem('perfume_user');
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('rememberMe');
+    localStorage.removeItem('rememberedEmail');
+
     toast.success('Logged out successfully');
     navigate('/', { replace: true });
+
+    // Thoda delay deke reload (state clear karne ke liye)
     setTimeout(() => {
       window.location.reload();
     }, 100);

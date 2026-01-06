@@ -11,8 +11,8 @@ const Testimonials = () => {
     product3: "https://images.unsplash.com/photo-1523293182086-7651a899d37f?q=80&w=800&auto=format&fit=crop",
     ingredients: "https://images.unsplash.com/photo-1615485290382-441e4d0c9cb5?q=80&w=1200&auto=format&fit=crop",
     cinematic: "https://images.unsplash.com/photo-1616132422478-db7e14a839b0?q=80&w=1800&auto=format&fit=crop",
-    lifestyle2: "https://images.unsplash.com/photo-1583467875263-d50dec37a88c?q=80&w=800&auto=format&fit=crop",
-    lifestyle1: "https://images.unsplash.com/photo-1512290923902-8a9f81dc206e?q=80&w=800&auto=format&fit=crop",
+    lifestyle2: "https://images.unsplash.com/photo-1592914610354-fd354ea45e48?q=80&w=400&auto=format&fit=crop",
+    lifestyle1: "https://images.unsplash.com/photo-1592914610354-fd354ea45e48?q=80&w=400&auto=format&fit=crop",
     insta: [
       "https://images.unsplash.com/photo-1595475243692-3839303bc2d5?q=80&w=400&auto=format&fit=crop",
       "https://images.unsplash.com/photo-1608528577221-9082fb305018?q=80&w=400&auto=format&fit=crop",

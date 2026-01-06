@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Sparkles, Check, Phone, MessageSquare, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from "../context/AuthContext";
+import SMSService from '../services/SMSService'; // ✅ Updated import
 
 // Define user type for authentication
 interface AuthUser {
@@ -20,7 +20,7 @@ interface AuthResult {
   user?: AuthUser;
 }
 
-// OTP verification component (same as before)
+// OTP verification component
 const OTPVerification = ({
   phoneNumber,
   onVerify,
@@ -203,35 +203,6 @@ const OTPVerification = ({
   );
 };
 
-// SMS Service Class (same as before)
-class SMSService {
-  static async sendViaEmailSimulation(phoneNumber: string, otp: string): Promise<boolean> {
-    console.log(`OTP for ${phoneNumber}: ${otp}`);
-
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    if (process.env.NODE_ENV === 'development') {
-      toast.success(
-        <div>
-          <p className="font-semibold">Demo OTP Sent!</p>
-          <p className="text-sm">Phone: +91{phoneNumber}</p>
-          <p className="text-sm">OTP: <span className="font-bold text-purple-600">{otp}</span></p>
-          <p className="text-xs text-gray-500">(In production, this would be sent via SMS)</p>
-        </div>,
-        { duration: 5000 }
-      );
-    } else {
-      toast.success(`OTP sent to +91${phoneNumber}`);
-    }
-
-    return true;
-  }
-
-  static async sendOTP(phoneNumber: string, otp: string): Promise<boolean> {
-    return this.sendViaEmailSimulation(phoneNumber, otp);
-  }
-}
-
 const Login: React.FC = () => {
   const [loginData, setLoginData] = useState({
     email: '',
@@ -247,7 +218,6 @@ const Login: React.FC = () => {
   const [showOtpVerification, setShowOtpVerification] = useState(false);
   const [otpPhoneNumber, setOtpPhoneNumber] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState('');
-
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -336,6 +306,7 @@ const Login: React.FC = () => {
     localStorage.setItem(`otp_${phoneNumber}`, otp);
     localStorage.setItem(`otp_expiry_${phoneNumber}`, (Date.now() + 5 * 60 * 1000).toString());
 
+    // ✅ Use SMSService to send OTP
     const sent = await SMSService.sendOTP(phoneNumber, otp);
 
     if (sent) {
@@ -439,9 +410,22 @@ const Login: React.FC = () => {
         role: user.role || 'user'
       };
 
+      // ✅ Create perfume_user format for Profile.tsx
+      const perfumeUser = {
+        id: user.id || user.email,
+        firstName: user.firstName || user.name?.split(' ')[0] || 'User',
+        lastName: user.lastName || user.name?.split(' ')[1] || '',
+        email: user.email || '',
+        phone: user.phone || user.mobile,
+        password: user.password || '',
+        role: user.role || 'user',
+        joinDate: user.joinDate || new Date().toISOString().split('T')[0]
+      };
+
       // Store session
       localStorage.setItem('token', mockToken);
       localStorage.setItem('user', JSON.stringify(authUser));
+      localStorage.setItem('perfume_user', JSON.stringify(perfumeUser));
       localStorage.setItem('isLoggedIn', 'true');
 
       if (rememberMe) {
@@ -483,7 +467,6 @@ const Login: React.FC = () => {
       }
 
       const from = (location.state as any)?.from || '/profile';
-      // REMOVED window.location.reload() - Yeh issue tha
       setTimeout(() => {
         navigate(from, { replace: true });
       }, 300);
@@ -496,84 +479,98 @@ const Login: React.FC = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
+    e.preventDefault();
 
-      if (loginMethod === 'phone') {
-        // Handle phone OTP login
-        await handlePhoneLogin();
+    if (loginMethod === 'phone') {
+      // Handle phone OTP login
+      await handlePhoneLogin();
+      return;
+    }
+
+    // Handle email login
+    setIsLoading(true);
+
+    try {
+      const authResult = authenticateUser(loginData.email, loginData.password);
+
+      if (!authResult.success) {
+        toast.error(authResult.message || 'Invalid credentials');
         return;
       }
 
-      // Handle email login - Use local authentication instead of API
-      setIsLoading(true);
+      // Create mock token and session
+      const mockToken = `mock_jwt_${Date.now()}_${Math.random().toString(36).substr(2)}`;
+      const authUser = authResult.user!;
+      
+      // ✅ Create perfume_user format for Profile.tsx
+      const nameParts = authUser.name.split(' ');
+      const perfumeUser = {
+        id: authUser.id,
+        firstName: nameParts[0] || 'User',
+        lastName: nameParts.slice(1).join(' ') || '',
+        email: authUser.email,
+        phone: authUser.phone,
+        password: loginData.password,
+        role: authUser.role,
+        joinDate: new Date().toISOString().split('T')[0]
+      };
 
-      try {
-        const authResult = authenticateUser(loginData.email, loginData.password);
+      // Store session
+      localStorage.setItem('token', mockToken);
+      localStorage.setItem('user', JSON.stringify(authUser));
+      localStorage.setItem('perfume_user', JSON.stringify(perfumeUser));
+      localStorage.setItem('isLoggedIn', 'true');
 
-        if (!authResult.success) {
-          toast.error(authResult.message || 'Invalid credentials');
-          return;
-        }
-
-        // Create mock token and session
-        const mockToken = `mock_jwt_${Date.now()}_${Math.random().toString(36).substr(2)}`;
-        const authUser = authResult.user!;
-
-        // Store session
-        localStorage.setItem('token', mockToken);
-        localStorage.setItem('user', JSON.stringify(authUser));
-        localStorage.setItem('isLoggedIn', 'true');
-
-        if (rememberMe) {
-          localStorage.setItem('rememberMe', 'true');
-          localStorage.setItem('rememberedEmail', authUser.email || '');
-        }
-
-        toast.success(`Welcome back, ${authUser.name}!`);
-
-        // Confetti effect
-        if (typeof window !== 'undefined') {
-          import('canvas-confetti').then((confettiModule) => {
-            const confetti = confettiModule.default;
-            const end = Date.now() + 1000;
-            const colors = ['#a855f7', '#ec4899', '#f59e0b'];
-
-            (function frame() {
-              if (Date.now() > end) return;
-
-              confetti({
-                particleCount: 3,
-                angle: 60,
-                spread: 55,
-                origin: { x: 0 },
-                colors: colors,
-              });
-
-              confetti({
-                particleCount: 3,
-                angle: 120,
-                spread: 55,
-                origin: { x: 1 },
-                colors: colors,
-              });
-
-              requestAnimationFrame(frame);
-            }());
-          });
-        }
-
-        const from = (location.state as any)?.from || '/profile';
-        setTimeout(() => {
-          navigate(from, { replace: true });
-        }, 300);
-
-      } catch (error) {
-        console.error('Login error:', error);
-        toast.error('Login failed. Please check your credentials.');
-      } finally {
-        setIsLoading(false);
+      if (rememberMe) {
+        localStorage.setItem('rememberMe', 'true');
+        localStorage.setItem('rememberedEmail', authUser.email || '');
       }
-    };
+
+      toast.success(`Welcome back, ${authUser.name}!`);
+
+      // Confetti effect
+      if (typeof window !== 'undefined') {
+        import('canvas-confetti').then((confettiModule) => {
+          const confetti = confettiModule.default;
+          const end = Date.now() + 1000;
+          const colors = ['#a855f7', '#ec4899', '#f59e0b'];
+
+          (function frame() {
+            if (Date.now() > end) return;
+
+            confetti({
+              particleCount: 3,
+              angle: 60,
+              spread: 55,
+              origin: { x: 0 },
+              colors: colors,
+            });
+
+            confetti({
+              particleCount: 3,
+              angle: 120,
+              spread: 55,
+              origin: { x: 1 },
+              colors: colors,
+            });
+
+            requestAnimationFrame(frame);
+          }());
+        });
+      }
+
+      const from = (location.state as any)?.from || '/profile';
+      setTimeout(() => {
+        navigate(from, { replace: true });
+      }, 300);
+
+    } catch (error) {
+      console.error('Login error:', error);
+      toast.error('Login failed. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const rememberedEmail = localStorage.getItem('rememberedEmail');
@@ -611,10 +608,11 @@ const Login: React.FC = () => {
         email: 'test@example.com',
         phone: '9876543210',
         password: 'password123',
-        role: 'user'
+        role: 'user',
+        joinDate: '2024-01-01'
       };
       localStorage.setItem('perfume_users', JSON.stringify([testUser]));
-      console.log('Test user created for OTP testing');
+      console.log('Test user created for testing');
     }
   }, []);
 
@@ -774,6 +772,7 @@ const Login: React.FC = () => {
                 </button>
               </motion.div>
 
+
               {/* Demo Note for Mobile OTP */}
               {loginMethod === 'phone' && (
                 <motion.div
@@ -782,7 +781,12 @@ const Login: React.FC = () => {
                   className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg"
                 >
                   <p className="text-sm text-blue-800 text-center">
-                    <strong>Demo Mode:</strong> OTP will be shown on screen. In production, it would be sent via SMS.
+                    <strong>📱 Mobile OTP Login:</strong> Enter your registered phone number to receive OTP
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1 text-center">
+                    {process.env.NODE_ENV === 'development'
+                      ? 'OTP will be shown on screen (Demo Mode)'
+                      : 'OTP will be sent via SMS (Production Mode)'}
                   </p>
                 </motion.div>
               )}
@@ -1040,7 +1044,9 @@ const Login: React.FC = () => {
                   <p><span className="font-semibold">Mobile:</span> 9876543210</p>
                   <p><span className="font-semibold">Email:</span> test@example.com</p>
                   <p><span className="font-semibold">Password:</span> password123</p>
-                  <p className="text-purple-600 mt-2">✓ Auto-created test user available</p>
+                  <div className="mt-2">
+                    <p className="text-purple-600">✓ Auto-created test user available</p>
+                  </div>
                 </div>
               </motion.div>
 

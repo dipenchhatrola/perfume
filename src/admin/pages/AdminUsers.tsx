@@ -1,13 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   User, Mail, Phone, Calendar, Search, Edit, Trash2,
   UserPlus, ChevronLeft, ChevronRight, Shield, CheckCircle,
   MoreVertical, Eye, Download, Filter, X, AlertCircle,
   TrendingUp, Users as UsersIcon, UserCheck, Clock, Sparkles,
   ArrowRight, Loader, Check, AlertTriangle,
-  Key
+  Key, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
+import toast from 'react-hot-toast';
+
+const API_BASE_URL = 'http://localhost:5000/api';
 
 interface UserData {
   id: string;
@@ -25,20 +28,92 @@ interface UserData {
 
 export default function Users() {
   const [users, setUsers] = useState<UserData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadUsersFromLocalStorage();
-  }, []);
-
-  const loadUsersFromLocalStorage = () => {
+  // Fetch users from API
+  const fetchUsers = useCallback(async () => {
     try {
-      const storedUsers = localStorage.getItem('perfume_users');
-      if (storedUsers) {
-        const parsedUsers = JSON.parse(storedUsers);
+      setLoading(true);
+      setApiError(null);
 
-        // Convert perfume_users format to UserData format
-        const formattedUsers: UserData[] = parsedUsers.map((user: any, index: number) => {
-          // Avatar colors array (same as before)
+      // Get token from localStorage
+      const token = localStorage.getItem('auth_token');
+
+      const response = await fetch(`${API_BASE_URL}/admin/users`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+
+        if (response.status === 401) {
+          setApiError('Authentication failed. Please login again.');
+          toast.error('Session expired. Please login again.');
+        } else if (response.status === 403) {
+          setApiError('You do not have permission to access users.');
+          toast.error('Permission denied.');
+        } else {
+          setApiError(`Failed to fetch users: ${response.status} ${response.statusText}`);
+          throw new Error(`API Error ${response.status}: ${errorText}`);
+        }
+
+        // Load from localStorage as fallback
+        const storedUsers = localStorage.getItem('perfume_users');
+        if (storedUsers) {
+          try {
+            const parsed = JSON.parse(storedUsers);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setUsers(parsed);
+              toast('Using cached data');
+              return;
+            }
+          } catch (e) {
+            console.error('Error parsing localStorage:', e);
+          }
+        }
+
+        // Use fallback data
+        const fallbackUsers: UserData[] = [
+          {
+            id: '1',
+            name: 'Admin User',
+            email: 'admin@example.com',
+            phone: '+1 234 567 8900',
+            role: 'admin',
+            status: 'active',
+            registrationDate: '2024-01-01',
+            lastLogin: new Date().toISOString().split('T')[0],
+            avatarColor: 'bg-gradient-to-r from-purple-500 to-pink-400',
+            password: 'admin123'
+          },
+          {
+            id: '2',
+            name: 'John Doe',
+            email: 'john@example.com',
+            phone: '+1 987 654 3210',
+            role: 'user',
+            status: 'active',
+            registrationDate: '2024-01-02',
+            lastLogin: new Date().toISOString().split('T')[0],
+            avatarColor: 'bg-gradient-to-r from-blue-500 to-cyan-400',
+            password: 'password123'
+          }
+        ];
+        setUsers(fallbackUsers);
+        return;
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.data && Array.isArray(result.data)) {
+        // Convert API response to UserData format
+        const formattedUsers: UserData[] = result.data.map((user: any, index: number) => {
+          // Avatar colors array
           const colors = [
             'bg-gradient-to-r from-blue-500 to-cyan-400',
             'bg-gradient-to-r from-purple-500 to-pink-400',
@@ -50,36 +125,109 @@ export default function Users() {
             'bg-gradient-to-r from-pink-500 to-rose-400',
           ];
 
-          return {
-            id: user.id || (index + 1).toString(),
-            name: user.firstName && user.lastName
-              ? `${user.firstName} ${user.lastName}`
-              : user.username || user.email,
-            email: user.email || '',
+          // Format name - Check all possible fields
+          let displayName = 'Unknown User';
+
+          if (user.username) {
+            displayName = user.username;
+          }
+
+          if (user.firstName || user.lastName) {
+            const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+            if (fullName) displayName = fullName;
+          }
+
+          if (user.name) {
+            displayName = user.name;
+          }
+
+          if (user.email && displayName === 'Unknown User') {
+            displayName = user.email.split('@')[0];
+          }
+
+          // Format dates
+          const formatDate = (dateString: string | Date) => {
+            if (!dateString) return new Date().toISOString().split('T')[0];
+            try {
+              const date = new Date(dateString);
+              return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+            } catch (e) {
+              console.error('Date formatting error:', e);
+              return new Date().toISOString().split('T')[0];
+            }
+          };
+
+          // Determine status based on user data
+          let userStatus: 'active' | 'inactive' | 'suspended' = 'active';
+          if (user.status) {
+            userStatus = user.status;
+          } else if (user.isActive === false) {
+            userStatus = 'inactive';
+          } else if (user.isBanned || user.isSuspended) {
+            userStatus = 'suspended';
+          }
+
+          const formattedUser = {
+            id: user._id || user.id || `user-${index + 1}`,
+            name: displayName,
+            email: user.email || 'no-email@example.com',
             phone: user.phone || '+1 000 000 0000',
-            role: 'user' as const, // Default role 'user'
-            status: 'active' as const, // Default status 'active'
-            registrationDate: user.joinDate || new Date().toISOString().split('T')[0],
-            lastLogin: new Date().toISOString().split('T')[0],
+            role: (user.role || 'user') as 'admin' | 'user' | 'moderator',
+            status: userStatus,
+            registrationDate: formatDate(user.createdAt || user.joinDate || user.registrationDate),
+            lastLogin: formatDate(user.lastLogin || user.lastActive),
             avatarColor: colors[index % colors.length],
             username: user.username,
-            password: user.password, // Note: In real app, never store password like this
+            password: user.password || undefined,
           };
+
+          return formattedUser;
         });
 
         setUsers(formattedUsers);
+
+        // Also save to localStorage for offline viewing
+        localStorage.setItem('perfume_users', JSON.stringify(formattedUsers));
+
+        toast.success(`Loaded ${formattedUsers.length} users successfully!`);
       } else {
-        // If no users in localStorage, use the default dummy data
-        //const defaultUsers = [...]; // Your existing dummy data
-        //setUsers(defaultUsers);
+        setApiError('Invalid response format from server');
+        toast.error('Invalid response from server');
       }
-    } catch (error) {
-      console.error('Error loading users from localStorage:', error);
-      // Fallback to default data
-      //const defaultUsers = [...]; // Your existing dummy data
-      //setUsers(defaultUsers);
+    } catch (error: any) {
+      console.error('Error fetching users:', error);
+      setApiError(error.message || 'Failed to load users');
+      toast.error('Failed to load users. Check console for details.');
+
+      // Fallback to localStorage if API fails
+      try {
+        const storedUsers = localStorage.getItem('perfume_users');
+        if (storedUsers) {
+          const parsed = JSON.parse(storedUsers);
+          if (Array.isArray(parsed)) {
+            setUsers(parsed);
+            toast('Using cached data');
+          }
+        } else {
+          setUsers([]);
+        }
+      } catch (storageError) {
+        console.error('Error loading from localStorage:', storageError);
+        setUsers([]);
+      }
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
+
+  const hasFetched = useRef(false);
+
+  useEffect(() => {
+    if (!hasFetched.current) {
+      hasFetched.current = true;
+      fetchUsers();
+    }
+  }, [fetchUsers]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
@@ -94,6 +242,7 @@ export default function Users() {
     email: '',
     phone: '',
     role: 'user' as 'admin' | 'user' | 'moderator',
+    password: '',
   });
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'status'>('name');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
@@ -103,7 +252,7 @@ export default function Users() {
 
   // Filter users based on search and filters
   const filteredUsers = users.filter(user => {
-    const matchesSearch =
+    const matchesSearch = searchTerm === '' ||
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.phone.includes(searchTerm);
@@ -148,7 +297,7 @@ export default function Users() {
         <button
           onClick={() => {
             navigator.clipboard.writeText(password);
-            // Show notification
+            showNotificationMessage('Password copied to clipboard!');
           }}
           className="text-xs text-green-500 hover:text-green-700"
           title="Copy password"
@@ -162,21 +311,25 @@ export default function Users() {
   const formatDate = useCallback((dateString: string): string => {
     if (!dateString) return 'N/A';
 
-    // Check if already in MM/DD/YYYY format
-    if (dateString.includes('/')) {
+    try {
+      // If already in MM/DD/YYYY format
+      if (dateString.includes('/')) {
+        return dateString;
+      }
+
+      // Parse date
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (e) {
+      console.error('Date formatting error:', e);
       return dateString;
     }
-
-    // Check if in YYYY-MM-DD format
-    if (dateString.includes('-')) {
-      const parts = dateString.split('-');
-      if (parts.length === 3) {
-        const [year, month, day] = parts;
-        return `${month.padStart(2, '0')}/${day.padStart(2, '0')}/${year}`;
-      }
-    }
-
-    return dateString;
   }, []);
 
   // Pagination
@@ -191,86 +344,157 @@ export default function Users() {
     setTimeout(() => setShowNotification(false), 3000);
   };
 
-  const handleAddUser = () => {
-    const colors = [
-      'bg-gradient-to-r from-blue-500 to-cyan-400',
-      'bg-gradient-to-r from-purple-500 to-pink-400',
-      'bg-gradient-to-r from-green-500 to-emerald-400',
-      'bg-gradient-to-r from-orange-500 to-amber-400',
-      'bg-gradient-to-r from-red-500 to-rose-400',
-      'bg-gradient-to-r from-indigo-500 to-blue-400',
-    ];
-
-    const userToAdd: UserData = {
-      id: (users.length + 1).toString(),
-      ...newUser,
-      status: 'active',
-      registrationDate: new Date().toISOString().split('T')[0],
-      lastLogin: new Date().toISOString().split('T')[0],
-      avatarColor: colors[Math.floor(Math.random() * colors.length)],
-    };
-
-    setUsers([...users, userToAdd]);
-    saveUsersToLocalStorage([...users, userToAdd]);
-    setNewUser({ name: '', email: '', phone: '', role: 'user' });
-    setShowAddModal(false);
-    showNotificationMessage('User added successfully!');
+  // Safe string capitalizer
+  const capitalizeString = (str: string): string => {
+    if (!str) return 'Unknown';
+    return str.charAt(0).toUpperCase() + str.slice(1);
   };
 
-  const saveUsersToLocalStorage = (usersList: UserData[]) => {
+  // Add user via API
+  const handleAddUser = async () => {
     try {
-      // Convert back to perfume_users format if needed
-      const perfumeUsers = usersList.map(user => ({
-        id: user.id,
-        firstName: user.name.split(' ')[0] || user.name,
-        lastName: user.name.split(' ')[1] || '',
-        email: user.email,
-        username: user.name,
-        phone: user.phone,
-        joinDate: user.registrationDate,
-      }));
+      const token = localStorage.getItem('auth_token');
 
-      localStorage.setItem('perfume_users', JSON.stringify(perfumeUsers));
-    } catch (error) {
-      console.error('Error saving users to localStorage:', error);
+      const response = await fetch(`${API_BASE_URL}/admin/users`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newUser.name,
+          email: newUser.email,
+          phone: newUser.phone,
+          role: newUser.role,
+          password: newUser.password || 'defaultPassword123',
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to add user');
+      }
+
+      if (result.success) {
+        // Refresh users list
+        fetchUsers();
+        setNewUser({ name: '', email: '', phone: '', role: 'user', password: '' });
+        setShowAddModal(false);
+        toast.success('User added successfully!');
+      }
+    } catch (error: any) {
+      console.error('Error adding user:', error);
+      toast.error(error.message || 'Failed to add user');
     }
   };
 
-  const handleEditUser = () => {
+  // Edit user via API
+  const handleEditUser = async () => {
     if (!selectedUser) return;
 
-    const updatedUsers = users.map(user =>
-      user.id === selectedUser.id ? selectedUser : user
-    );
+    try {
+      const token = localStorage.getItem('auth_token');
 
-    setUsers(updatedUsers);
-    // Sync with localStorage
-    saveUsersToLocalStorage(updatedUsers);
+      const response = await fetch(`${API_BASE_URL}/admin/users/${selectedUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: selectedUser.name,
+          email: selectedUser.email,
+          role: selectedUser.role,
+          status: selectedUser.status,
+        }),
+      });
 
-    setShowEditModal(false);
-    setSelectedUser(null);
-    showNotificationMessage('User updated successfully!');
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to update user');
+      }
+
+      if (result.success) {
+        // Refresh users list
+        fetchUsers();
+        setShowEditModal(false);
+        setSelectedUser(null);
+        toast.success('User updated successfully!');
+      }
+    } catch (error: any) {
+      console.error('Error editing user:', error);
+      toast.error(error.message || 'Failed to update user');
+    }
   };
 
+  // Delete user via API
   const handleDeleteUser = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) return;
+
     setIsDeleting(id);
-    await new Promise(resolve => setTimeout(resolve, 800));
 
-    const updatedUsers = users.filter(user => user.id !== id);
-    setUsers(updatedUsers);
+    try {
+      const token = localStorage.getItem('auth_token');
 
-    // Also update localStorage
-    saveUsersToLocalStorage(updatedUsers);
+      const response = await fetch(`${API_BASE_URL}/admin/users/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-    setIsDeleting(null);
-    showNotificationMessage('User deleted successfully!');
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to delete user');
+      }
+
+      if (result.success) {
+        // Remove from local state
+        setUsers(users.filter(user => user.id !== id));
+        toast.success('User deleted successfully!');
+      }
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast.error(error.message || 'Failed to delete user');
+    } finally {
+      setIsDeleting(null);
+    }
   };
 
-  const handleStatusChange = (id: string, newStatus: 'active' | 'inactive' | 'suspended') => {
-    setUsers(users.map(user =>
-      user.id === id ? { ...user, status: newStatus } : user
-    ));
-    showNotificationMessage(`User status updated to ${newStatus}`);
+  const handleStatusChange = async (id: string, newStatus: 'active' | 'inactive' | 'suspended') => {
+    try {
+      const token = localStorage.getItem('auth_token');
+
+      const response = await fetch(`${API_BASE_URL}/admin/users/${id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to update status');
+      }
+
+      if (result.success) {
+        // Update local state
+        setUsers(users.map(user =>
+          user.id === id ? { ...user, status: newStatus } : user
+        ));
+        toast.success(`User status updated to ${newStatus}`);
+      }
+    } catch (error: any) {
+      console.error('Error changing status:', error);
+      toast.error(error.message || 'Failed to update status');
+    }
   };
 
   const resetFilters = () => {
@@ -305,16 +529,20 @@ export default function Users() {
     total: users.length,
     active: users.filter(u => u.status === 'active').length,
     admins: users.filter(u => u.role === 'admin').length,
-    todayLogins: users.filter(u => u.lastLogin === new Date().toISOString().split('T')[0]).length,
+    todayLogins: users.filter(u => {
+      const today = new Date().toISOString().split('T')[0];
+      return u.lastLogin === today;
+    }).length,
     growth: '+12% this month',
   };
 
   // Get user initials
   const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+    if (!name) return '??';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  // Animation variants with proper typing
+  // Animation variants
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
@@ -385,13 +613,73 @@ export default function Users() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 p-4 md:p-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Skeleton Header */}
+          <div className="mb-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <div>
+                <div className="h-10 w-64 bg-gray-200 rounded-xl animate-pulse mb-2"></div>
+                <div className="h-4 w-48 bg-gray-200 rounded animate-pulse"></div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-24 bg-gray-200 rounded-xl animate-pulse"></div>
+                <div className="h-10 w-24 bg-gray-200 rounded-xl animate-pulse"></div>
+                <div className="h-10 w-32 bg-gray-200 rounded-xl animate-pulse"></div>
+              </div>
+            </div>
+
+            {/* Skeleton Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="h-4 w-20 bg-gray-200 rounded animate-pulse mb-2"></div>
+                      <div className="h-8 w-16 bg-gray-200 rounded animate-pulse"></div>
+                    </div>
+                    <div className="h-12 w-12 bg-gray-200 rounded-xl animate-pulse"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Skeleton Table */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <div className="space-y-4">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="flex items-center justify-between py-4 border-b border-gray-100">
+                  <div className="flex items-center space-x-4">
+                    <div className="h-12 w-12 bg-gray-200 rounded-xl animate-pulse"></div>
+                    <div>
+                      <div className="h-4 w-32 bg-gray-200 rounded animate-pulse mb-2"></div>
+                      <div className="h-3 w-20 bg-gray-200 rounded animate-pulse"></div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <div className="h-6 w-20 bg-gray-200 rounded-full animate-pulse"></div>
+                    <div className="h-6 w-20 bg-gray-200 rounded-lg animate-pulse"></div>
+                    <div className="h-8 w-24 bg-gray-200 rounded-lg animate-pulse"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <motion.div
       initial="initial"
       animate="animate"
       exit="exit"
       variants={pageVariants}
-      className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 p-4 md:p-6"
+      className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 p-4 md:p-8"
     >
       {/* Notification */}
       <AnimatePresence>
@@ -400,9 +688,9 @@ export default function Users() {
             initial={{ opacity: 0, y: -50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
-            className="fixed top-4 right-4 z-50"
+            className="fixed top-6 right-6 z-50"
           >
-            <div className="bg-gradient-to-r from-emerald-500 to-green-500 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-3">
+            <div className="bg-gradient-to-r from-emerald-500 to-green-500 text-white px-6 py-3 rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-3 backdrop-blur-sm">
               <Check className="animate-pulse" size={20} />
               <span className="font-medium">{notificationMessage}</span>
             </div>
@@ -416,22 +704,22 @@ export default function Users() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="mb-8"
+          className="mb-10"
         >
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-            <div>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+            <div className="space-y-2">
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 }}
-                className="flex items-center gap-2 mb-2"
+                className="flex items-center gap-3"
               >
-                <Sparkles className="text-blue-500" size={24} />
+                <Sparkles className="text-blue-600" size={28} />
                 <motion.h1
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2, type: "spring" as const }}
-                  className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent"
+                  className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-700 via-purple-700 to-pink-700 bg-clip-text text-transparent"
                 >
                   User Management
                 </motion.h1>
@@ -439,11 +727,24 @@ export default function Users() {
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="text-gray-600 mt-2"
+                transition={{ delay: 0.3 }}
+                className="text-slate-600 mt-1 text-sm md:text-base"
               >
-                Manage all registered users in the system
+                Manage all registered users and permissions
               </motion.p>
+
+              <div className="flex flex-wrap items-center gap-3 mt-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg text-slate-700 text-sm font-medium">
+                  <UsersIcon size={16} />
+                  <span>{users.length} total users</span>
+                </div>
+                {apiError && (
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-100 text-amber-800 rounded-lg text-sm font-medium">
+                    <AlertCircle size={16} />
+                    <span>Using cached data</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <motion.div
@@ -453,23 +754,25 @@ export default function Users() {
               className="flex items-center gap-3"
             >
               <motion.button
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:border-gray-300 transition-all hover:shadow-sm"
+                onClick={fetchUsers}
+                className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 rounded-xl hover:border-slate-300 transition-all hover:shadow-md hover:shadow-slate-200/50 group"
+                title="Refresh users"
               >
-                <Download size={18} />
-                <span className="hidden sm:inline">Export</span>
+                <RefreshCw size={20} className="text-slate-600 group-hover:rotate-180 transition-transform duration-500" />
+                <span className="font-medium text-slate-700">Refresh</span>
               </motion.button>
 
               <motion.button
-                whileHover={{ scale: 1.05, boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.5)" }}
+                whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl transition-all group relative overflow-hidden"
+                className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl transition-all group relative overflow-hidden shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-700 to-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-700 to-indigo-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <UserPlus size={20} className="relative z-10" />
-                <span className="relative z-10">Add User</span>
+                <span className="relative z-10 font-semibold">Add User</span>
                 <ArrowRight className="relative z-10 ml-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" size={16} />
               </motion.button>
             </motion.div>
@@ -480,51 +783,56 @@ export default function Users() {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10"
           >
             {[
               {
                 label: 'Total Users',
                 value: stats.total,
                 icon: UsersIcon,
-                color: 'from-blue-500 to-cyan-400',
+                color: 'from-blue-500 to-cyan-500',
                 trend: stats.growth,
-                trendIcon: TrendingUp
+                trendIcon: TrendingUp,
+                bgColor: 'bg-blue-50'
               },
               {
                 label: 'Active Users',
                 value: stats.active,
                 icon: UserCheck,
-                color: 'from-emerald-500 to-green-400'
+                color: 'from-emerald-500 to-green-500',
+                bgColor: 'bg-emerald-50'
               },
               {
                 label: 'Administrators',
                 value: stats.admins,
                 icon: Shield,
-                color: 'from-purple-500 to-pink-400'
+                color: 'from-purple-500 to-pink-500',
+                bgColor: 'bg-purple-50'
               },
               {
                 label: "Today's Logins",
                 value: stats.todayLogins,
                 icon: Clock,
-                color: 'from-amber-500 to-orange-400'
+                color: 'from-amber-500 to-orange-500',
+                bgColor: 'bg-amber-50'
               }
             ].map((stat, index) => (
               <motion.div
                 key={stat.label}
                 variants={itemVariants}
                 whileHover={{ y: -5, transition: { type: "spring", stiffness: 300 } }}
-                className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-all cursor-pointer group"
+                className={`${stat.bgColor} rounded-2xl p-6 border border-slate-200/50 hover:border-slate-300/50 hover:shadow-lg transition-all cursor-pointer group relative overflow-hidden`}
               >
-                <div className="flex items-center justify-between">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-white/20 to-transparent rounded-full -translate-y-10 translate-x-10" />
+                <div className="flex items-center justify-between relative z-10">
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">{stat.label}</p>
+                    <p className="text-sm text-slate-600 mb-2 font-medium">{stat.label}</p>
                     <div className="flex items-baseline gap-2">
                       <motion.p
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         transition={{ delay: index * 0.1 + 0.3, type: "spring" }}
-                        className="text-3xl font-bold text-gray-900"
+                        className="text-3xl font-bold text-slate-900"
                       >
                         {stat.value}
                       </motion.p>
@@ -533,7 +841,7 @@ export default function Users() {
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: index * 0.1 + 0.5 }}
-                          className="text-sm text-emerald-600 font-medium flex items-center gap-1"
+                          className="text-sm text-emerald-600 font-medium flex items-center gap-1 px-2 py-1 bg-emerald-50 rounded-lg"
                         >
                           <stat.trendIcon size={14} />
                           {stat.trend}
@@ -543,7 +851,7 @@ export default function Users() {
                   </div>
                   <motion.div
                     whileHover={{ rotate: 10, scale: 1.1 }}
-                    className={`p-3 bg-gradient-to-br ${stat.color} rounded-xl group-hover:shadow-lg transition-all`}
+                    className={`p-3 bg-gradient-to-br ${stat.color} rounded-xl shadow-lg transition-all`}
                   >
                     <stat.icon className="text-white" size={24} />
                   </motion.div>
@@ -552,7 +860,7 @@ export default function Users() {
                   initial={{ width: 0 }}
                   animate={{ width: '100%' }}
                   transition={{ delay: index * 0.1 + 0.4, duration: 0.5 }}
-                  className="h-1 bg-gradient-to-r from-transparent via-gray-200 to-transparent mt-4"
+                  className="h-0.5 bg-gradient-to-r from-transparent via-slate-300/50 to-transparent mt-6"
                 />
               </motion.div>
             ))}
@@ -564,22 +872,22 @@ export default function Users() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-white rounded-2xl p-4 md:p-6 mb-6 shadow-sm border border-gray-100"
+          className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 md:p-6 mb-8 shadow-sm border border-slate-200/50 shadow-slate-100/50"
         >
-          <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex flex-col lg:flex-row gap-4 mb-4">
             {/* Search */}
             <div className="flex-1">
               <motion.div
                 whileHover={{ scale: 1.01 }}
                 className="relative"
               >
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
                 <input
                   type="text"
                   placeholder="Search users by name, email, or phone..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="w-full pl-12 pr-10 py-3.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all shadow-sm hover:shadow"
                 />
                 {searchTerm && (
                   <motion.button
@@ -587,7 +895,7 @@ export default function Users() {
                     animate={{ scale: 1 }}
                     whileHover={{ scale: 1.1 }}
                     onClick={() => setSearchTerm('')}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded-lg transition-colors"
                   >
                     <X size={18} />
                   </motion.button>
@@ -597,19 +905,12 @@ export default function Users() {
 
             {/* Filters and Controls */}
             <motion.div
-              className="flex flex-wrap gap-3"
+              className="flex flex-wrap items-center gap-3"
               variants={containerVariants}
               initial="hidden"
               animate="visible"
             >
               {[
-                {
-                  icon: Filter,
-                  value: selectedRole,
-                  onChange: setSelectedRole,
-                  options: ['All Roles', 'Admin', 'Moderator', 'User'],
-                  values: ['all', 'admin', 'moderator', 'user']
-                },
                 {
                   icon: AlertCircle,
                   value: selectedStatus,
@@ -622,13 +923,13 @@ export default function Users() {
                   key={index}
                   variants={itemVariants}
                   whileHover={{ y: -2 }}
-                  className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-xl hover:bg-gray-100 transition-colors"
+                  className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl hover:border-slate-300 hover:shadow-sm transition-all"
                 >
-                  <filter.icon size={18} className="text-gray-500" />
+                  <filter.icon size={18} className="text-slate-500" />
                   <select
                     value={filter.value}
                     onChange={(e) => filter.onChange(e.target.value)}
-                    className="bg-transparent border-none focus:ring-0 text-gray-700 cursor-pointer"
+                    className="bg-transparent border-none focus:ring-0 text-slate-700 cursor-pointer font-medium text-sm"
                   >
                     {filter.options.map((option, i) => (
                       <option key={option} value={filter.values[i]}>{option}</option>
@@ -639,13 +940,13 @@ export default function Users() {
 
               <motion.div
                 variants={itemVariants}
-                className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-xl"
+                className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl"
               >
-                <span className="text-gray-500">Sort:</span>
+                <span className="text-slate-500 text-sm font-medium">Sort:</span>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="bg-transparent border-none focus:ring-0 text-gray-700 cursor-pointer"
+                  className="bg-transparent border-none focus:ring-0 text-slate-700 cursor-pointer font-medium text-sm"
                 >
                   <option value="name">Name A-Z</option>
                   <option value="date">Newest First</option>
@@ -655,19 +956,19 @@ export default function Users() {
 
               <motion.div
                 variants={itemVariants}
-                className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl"
+                className="flex items-center gap-1 bg-white border border-slate-200 p-1.5 rounded-xl"
               >
                 <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow scale-110' : 'hover:bg-gray-100'}`}
+                  className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-blue-50 text-blue-600 shadow-sm scale-110' : 'hover:bg-slate-50 text-slate-500'}`}
                 >
                   <div className="grid grid-cols-2 gap-1 w-5 h-5">
                     {[...Array(4)].map((_, i) => (
                       <div
                         key={i}
-                        className={`rounded-sm ${viewMode === 'grid' ? 'bg-blue-600' : 'bg-gray-400'}`}
+                        className={`rounded-sm ${viewMode === 'grid' ? 'bg-blue-600' : 'bg-slate-400'}`}
                       />
                     ))}
                   </div>
@@ -676,13 +977,13 @@ export default function Users() {
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setViewMode('list')}
-                  className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow scale-110' : 'hover:bg-gray-100'}`}
+                  className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-blue-50 text-blue-600 shadow-sm scale-110' : 'hover:bg-slate-50 text-slate-500'}`}
                 >
                   <div className="flex flex-col gap-1 w-5 h-5">
                     {[...Array(3)].map((_, i) => (
                       <div
                         key={i}
-                        className={`h-1 rounded-full ${viewMode === 'list' ? 'bg-blue-600' : 'bg-gray-400'}`}
+                        className={`h-1 rounded-full ${viewMode === 'list' ? 'bg-blue-600' : 'bg-slate-400'}`}
                       />
                     ))}
                   </div>
@@ -691,14 +992,49 @@ export default function Users() {
 
               <motion.button
                 variants={itemVariants}
-                whileHover={{ scale: 1.05, backgroundColor: '#f3f4f6' }}
+                whileHover={{ scale: 1.05, backgroundColor: '#f8fafc' }}
                 whileTap={{ scale: 0.95 }}
                 onClick={resetFilters}
-                className="px-4 py-2 text-gray-600 rounded-xl transition-colors"
+                className="px-4 py-2.5 text-slate-600 hover:text-slate-800 font-medium text-sm border border-slate-200 hover:border-slate-300 rounded-xl transition-colors"
               >
-                Reset
+                Reset Filters
               </motion.button>
             </motion.div>
+          </div>
+
+          {/* Filter Summary */}
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <div className="flex items-center gap-2 text-slate-500">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span>Showing {sortedUsers.length} of {users.length} users</span>
+            </div>
+
+            {(searchTerm || selectedStatus !== 'all') && (
+              <>
+                <span className="text-slate-300">•</span>
+                <span className="text-slate-500 font-medium">Active filters:</span>
+                {searchTerm && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-100"
+                  >
+                    <Search size={12} />
+                    "{searchTerm}"
+                  </motion.span>
+                )}
+                {selectedStatus !== 'all' && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="inline-flex items-center gap-1 px-3 py-1 bg-amber-50 text-amber-700 rounded-lg border border-amber-100"
+                  >
+                    <AlertCircle size={12} />
+                    {selectedStatus}
+                  </motion.span>
+                )}
+              </>
+            )}
           </div>
         </motion.div>
 
@@ -710,33 +1046,33 @@ export default function Users() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
-            className="mb-8"
+            className="mb-10"
           >
             {viewMode === 'list' ? (
               /* List View */
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+                className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden backdrop-blur-sm"
               >
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50/50">
+                  <table className="min-w-full divide-y divide-slate-200/60">
+                    <thead className="bg-slate-50/80">
                       <tr>
-                        {['User', 'Contact', 'Password', 'Role', 'Status', 'Registration', 'Actions'].map((header, index) => (
+                        {['User', 'Contact', 'Password', 'Status', 'Registration', 'Actions'].map((header, index) => (
                           <motion.th
                             key={header}
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.1 }}
-                            className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
                           >
                             {header}
                           </motion.th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200/50">
+                    <tbody className="divide-y divide-slate-200/40">
                       <AnimatePresence>
                         {currentUsers.length > 0 ? (
                           currentUsers.map((user, index) => (
@@ -747,25 +1083,25 @@ export default function Users() {
                               exit={{ opacity: 0, x: -50 }}
                               transition={{ delay: index * 0.05 }}
                               whileHover={{
-                                backgroundColor: 'rgba(249, 250, 251, 0.5)',
+                                backgroundColor: 'rgba(241, 245, 249, 0.3)',
                                 transition: { duration: 0.2 }
                               }}
-                              className="group"
+                              className="group hover:bg-slate-50/50"
                             >
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex items-center">
                                   <motion.div
                                     whileHover={{ rotate: [0, -10, 10, -10, 0] }}
                                     transition={{ duration: 0.5 }}
-                                    className={`h-12 w-12 rounded-xl flex items-center justify-center text-white font-semibold ${user.avatarColor}`}
+                                    className={`h-12 w-12 rounded-xl flex items-center justify-center text-white font-semibold shadow-md ${user.avatarColor}`}
                                   >
                                     {getInitials(user.name)}
                                   </motion.div>
                                   <div className="ml-4">
-                                    <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                                    <div className="text-sm font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
                                       {user.name}
                                     </div>
-                                    <div className="text-xs text-gray-500">ID: {user.id}</div>
+                                    <div className="text-xs text-slate-500 font-mono">ID: {user.id}</div>
                                   </div>
                                 </div>
                               </td>
@@ -775,43 +1111,20 @@ export default function Users() {
                                     whileHover={{ x: 5 }}
                                     className="flex items-center gap-2 text-sm"
                                   >
-                                    <Mail size={14} className="text-gray-400" />
-                                    <span className="text-gray-700">{user.email}</span>
+                                    <Mail size={14} className="text-slate-400" />
+                                    <span className="text-slate-700">{user.email}</span>
                                   </motion.div>
                                   <motion.div
                                     whileHover={{ x: 5 }}
                                     className="flex items-center gap-2 text-sm"
                                   >
-                                    <Phone size={14} className="text-gray-400" />
-                                    <span className="text-gray-500">{user.phone}</span>
+                                    <Phone size={14} className="text-slate-400" />
+                                    <span className="text-slate-500 font-medium">{user.phone}</span>
                                   </motion.div>
                                 </div>
                               </td>
                               <td className="px-6 py-4">
-                                <div className="text-sm text-gray-900 font-mono">
-                                  {user.password ? (
-                                    <div className="flex items-center gap-2">
-                                      <span className="opacity-50">••••••••</span>
-                                      <button
-                                        onClick={() => navigator.clipboard.writeText(user.password || '')}
-                                        className="text-xs text-blue-500 hover:text-blue-700"
-                                        title="Copy password"
-                                      >
-                                        Copy
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <span className="text-gray-400">No password</span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <motion.span
-                                  whileHover={{ scale: 1.05 }}
-                                  className={`px-3 py-1.5 rounded-full text-xs font-semibold ${getRoleColor(user.role)}`}
-                                >
-                                  {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                                </motion.span>
+                                <PasswordDisplay password={user.password} />
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex items-center gap-3">
@@ -819,12 +1132,12 @@ export default function Users() {
                                     whileHover={{ scale: 1.05 }}
                                     className={`px-3 py-1 rounded-lg text-xs font-medium border ${getStatusColor(user.status)}`}
                                   >
-                                    {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+                                    {capitalizeString(user.status)}
                                   </motion.span>
                                   <select
                                     value={user.status}
                                     onChange={(e) => handleStatusChange(user.id, e.target.value as any)}
-                                    className="text-xs border border-gray-300 rounded-lg p-1.5 bg-transparent hover:bg-gray-50"
+                                    className="text-xs border border-slate-300 rounded-lg p-1.5 bg-white hover:bg-slate-50 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                                   >
                                     <option value="active">Active</option>
                                     <option value="inactive">Inactive</option>
@@ -833,17 +1146,17 @@ export default function Users() {
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-900">
-                                  <Calendar size={12} className="inline mr-1" />
+                                <div className="text-sm text-slate-900 font-medium">
+                                  <Calendar size={12} className="inline mr-1 text-slate-400" />
                                   {formatDate(user.registrationDate)}
                                 </div>
-                                <div className="text-xs text-gray-500">
-                                  <Calendar size={12} className="inline mr-1" />
+                                <div className="text-xs text-slate-500">
+                                  <Calendar size={12} className="inline mr-1 text-slate-400" />
                                   Last: {formatDate(user.lastLogin)}
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1">
                                   <motion.button
                                     whileHover={{ scale: 1.1, backgroundColor: '#dbeafe' }}
                                     whileTap={{ scale: 0.9 }}
@@ -851,7 +1164,7 @@ export default function Users() {
                                       setSelectedUser(user);
                                       setShowEditModal(true);
                                     }}
-                                    className="p-2 text-gray-500 hover:text-blue-600 rounded-lg transition-colors"
+                                    className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                     title="Edit user"
                                   >
                                     <Edit size={18} />
@@ -861,7 +1174,7 @@ export default function Users() {
                                     whileTap={{ scale: 0.9 }}
                                     onClick={() => handleDeleteUser(user.id)}
                                     disabled={isDeleting === user.id}
-                                    className="p-2 text-gray-500 hover:text-rose-600 rounded-lg transition-colors disabled:opacity-50"
+                                    className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50"
                                     title="Delete user"
                                   >
                                     {isDeleting === user.id ? (
@@ -873,7 +1186,7 @@ export default function Users() {
                                   <motion.button
                                     whileHover={{ scale: 1.1, backgroundColor: '#f3f4f6' }}
                                     whileTap={{ scale: 0.9 }}
-                                    className="p-2 text-gray-500 hover:text-gray-700 rounded-lg transition-colors"
+                                    className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                                   >
                                     <MoreVertical size={18} />
                                   </motion.button>
@@ -887,7 +1200,7 @@ export default function Users() {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                           >
-                            <td colSpan={6} className="px-6 py-12 text-center">
+                            <td colSpan={7} className="px-6 py-16 text-center">
                               <motion.div
                                 animate={{
                                   rotate: [0, 360],
@@ -897,12 +1210,18 @@ export default function Users() {
                                   rotate: { duration: 2, repeat: Infinity, ease: "linear" },
                                   scale: { duration: 1, repeat: Infinity }
                                 }}
-                                className="text-gray-400 mb-2"
+                                className="text-slate-300 mb-4"
                               >
-                                <Search size={48} className="mx-auto" />
+                                <Search size={56} className="mx-auto" />
                               </motion.div>
-                              <p className="text-gray-500 font-medium">No users found</p>
-                              <p className="text-gray-400 text-sm mt-1">Try adjusting your search or filters</p>
+                              <p className="text-slate-600 font-medium text-lg mb-2">No users found</p>
+                              <p className="text-slate-400 text-sm">Try adjusting your search or filters</p>
+                              <button
+                                onClick={resetFilters}
+                                className="mt-4 px-5 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-xl font-medium transition-colors"
+                              >
+                                Reset all filters
+                              </button>
                             </td>
                           </motion.tr>
                         )}
@@ -926,28 +1245,28 @@ export default function Users() {
                       variants={cardVariants}
                       whileHover={{
                         y: -8,
-                        boxShadow: "0 20px 40px -10px rgba(0, 0, 0, 0.1)",
+                        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.1)",
                         transition: { type: "spring", stiffness: 300 }
                       }}
-                      className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-xl transition-all"
+                      className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50 hover:shadow-xl transition-all backdrop-blur-sm hover:border-slate-300/50"
                     >
                       <div className="flex items-start justify-between mb-6">
                         <div className="flex items-center gap-4">
                           <motion.div
                             whileHover={{ rotate: 360 }}
                             transition={{ duration: 0.5 }}
-                            className={`h-16 w-16 rounded-2xl flex items-center justify-center text-white font-bold text-xl ${user.avatarColor}`}
+                            className={`h-16 w-16 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-lg ${user.avatarColor}`}
                           >
                             {getInitials(user.name)}
                           </motion.div>
                           <div>
-                            <h3 className="font-bold text-gray-900">{user.name}</h3>
-                            <p className="text-sm text-gray-500">ID: {user.id}</p>
+                            <h3 className="font-bold text-slate-900">{user.name}</h3>
+                            <p className="text-sm text-slate-500 font-mono">ID: {user.id}</p>
                           </div>
                         </div>
                         <motion.button
                           whileHover={{ rotate: 90 }}
-                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl"
+                          className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"
                         >
                           <MoreVertical size={20} />
                         </motion.button>
@@ -956,30 +1275,33 @@ export default function Users() {
                       <div className="space-y-4 mb-6">
                         <motion.div
                           whileHover={{ x: 5 }}
-                          className="flex items-center gap-2 text-sm"
+                          className="flex items-center gap-3 text-sm p-3 bg-slate-50/50 rounded-lg"
                         >
-                          <Mail size={16} className="text-gray-400" />
-                          <span className="text-gray-700">{user.email}</span>
+                          <Mail size={16} className="text-slate-400" />
+                          <span className="text-slate-700 truncate">{user.email}</span>
                         </motion.div>
                         <motion.div
                           whileHover={{ x: 5 }}
-                          className="flex items-center gap-2 text-sm"
+                          className="flex items-center gap-3 text-sm p-3 bg-slate-50/50 rounded-lg"
                         >
-                          <Phone size={16} className="text-gray-400" />
-                          <span className="text-gray-700">{user.phone}</span>
+                          <Phone size={16} className="text-slate-400" />
+                          <span className="text-slate-700">{user.phone}</span>
                         </motion.div>
                         <motion.div
                           whileHover={{ x: 5 }}
-                          className="flex items-center gap-2 text-sm"
+                          className="flex items-center gap-3 text-sm p-3 bg-slate-50/50 rounded-lg"
                         >
-                          <Key size={16} className="text-gray-400" /> {/* Key icon add करें imports में */}
-                          <span className="font-mono text-gray-700">
+                          <Key size={16} className="text-slate-400" />
+                          <span className="font-mono text-slate-700">
                             {user.password ? '••••••••' : 'No password'}
                           </span>
                           {user.password && (
                             <button
-                              onClick={() => navigator.clipboard.writeText(user.password || '')}
-                              className="ml-2 text-xs text-blue-500 hover:text-blue-700"
+                              onClick={() => {
+                                navigator.clipboard.writeText(user.password || '');
+                                showNotificationMessage('Password copied to clipboard!');
+                              }}
+                              className="ml-auto text-xs text-blue-500 hover:text-blue-700 font-medium"
                               title="Copy password"
                             >
                               Copy
@@ -988,39 +1310,24 @@ export default function Users() {
                         </motion.div>
                       </div>
 
-                      <div className="flex items-center justify-between mb-6">
-                        <motion.span
-                          whileHover={{ scale: 1.05 }}
-                          className={`px-3 py-1.5 rounded-full text-xs font-semibold ${getRoleColor(user.role)}`}
-                        >
-                          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                        </motion.span>
-                        <motion.span
-                          whileHover={{ scale: 1.05 }}
-                          className={`px-3 py-1 rounded-lg text-xs font-medium border ${getStatusColor(user.status)}`}
-                        >
-                          {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
-                        </motion.span>
-                      </div>
-
-                      <div className="text-xs text-gray-500 mb-6">
-                        <div className="flex items-center justify-between mb-2">
-                          <span>Registered</span>
-                          <span className="font-medium text-gray-700">
+                      <div className="text-xs text-slate-500 mb-6 space-y-2">
+                        <div className="flex items-center justify-between p-2 bg-slate-50/50 rounded-lg">
+                          <span className="font-medium">Registered</span>
+                          <span className="font-medium text-slate-700">
                             <Calendar size={12} className="inline mr-1" />
                             {formatDate(user.registrationDate)}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span>Last Login</span>
-                          <span className="font-medium text-gray-700">
+                        <div className="flex items-center justify-between p-2 bg-slate-50/50 rounded-lg">
+                          <span className="font-medium">Last Login</span>
+                          <span className="font-medium text-slate-700">
                             <Calendar size={12} className="inline mr-1" />
                             {formatDate(user.lastLogin)}
                           </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+                      <div className="flex items-center gap-2 pt-4 border-t border-slate-200">
                         <motion.button
                           whileHover={{ scale: 1.05, backgroundColor: '#dbeafe' }}
                           whileTap={{ scale: 0.95 }}
@@ -1028,7 +1335,7 @@ export default function Users() {
                             setSelectedUser(user);
                             setShowEditModal(true);
                           }}
-                          className="flex-1 py-2.5 text-sm font-medium text-blue-600 rounded-xl transition-colors"
+                          className="flex-1 py-2.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-colors"
                         >
                           Edit
                         </motion.button>
@@ -1037,7 +1344,7 @@ export default function Users() {
                           whileTap={{ scale: 0.95 }}
                           onClick={() => handleDeleteUser(user.id)}
                           disabled={isDeleting === user.id}
-                          className="flex-1 py-2.5 text-sm font-medium text-rose-600 rounded-xl transition-colors disabled:opacity-50"
+                          className="flex-1 py-2.5 text-sm font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors disabled:opacity-50"
                         >
                           {isDeleting === user.id ? (
                             <Loader className="animate-spin mx-auto" size={18} />
@@ -1048,7 +1355,7 @@ export default function Users() {
                         <motion.button
                           whileHover={{ scale: 1.1, backgroundColor: '#f3f4f6' }}
                           whileTap={{ scale: 0.9 }}
-                          className="p-2.5 text-gray-500 hover:text-gray-700 rounded-xl"
+                          className="p-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl"
                         >
                           <Eye size={18} />
                         </motion.button>
@@ -1059,7 +1366,7 @@ export default function Users() {
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="col-span-full bg-white rounded-2xl p-12 text-center"
+                    className="col-span-full bg-white rounded-2xl p-16 text-center border border-slate-200/50"
                   >
                     <motion.div
                       animate={{
@@ -1070,12 +1377,18 @@ export default function Users() {
                         rotate: { duration: 3, repeat: Infinity, ease: "linear" },
                         scale: { duration: 2, repeat: Infinity }
                       }}
-                      className="text-gray-400 mb-4"
+                      className="text-slate-300 mb-6"
                     >
-                      <Search size={64} className="mx-auto" />
+                      <Search size={72} className="mx-auto" />
                     </motion.div>
-                    <p className="text-gray-500 text-lg font-medium mb-2">No users found</p>
-                    <p className="text-gray-400">Try adjusting your search or filters</p>
+                    <p className="text-slate-600 text-xl font-medium mb-3">No users found</p>
+                    <p className="text-slate-400 mb-6">Try adjusting your search or filters</p>
+                    <button
+                      onClick={resetFilters}
+                      className="px-6 py-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-xl font-medium transition-colors border border-blue-200 hover:border-blue-300"
+                    >
+                      Reset all filters
+                    </button>
                   </motion.div>
                 )}
               </motion.div>
@@ -1089,25 +1402,25 @@ export default function Users() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
-            className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
+            className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 shadow-sm border border-slate-200/50"
           >
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-gray-700">
-                Showing <span className="font-semibold">{indexOfFirstUser + 1}</span> to{' '}
-                <span className="font-semibold">
+              <div className="text-sm text-slate-700">
+                Showing <span className="font-semibold text-slate-900">{indexOfFirstUser + 1}</span> to{' '}
+                <span className="font-semibold text-slate-900">
                   {Math.min(indexOfLastUser, sortedUsers.length)}
                 </span>{' '}
-                of <span className="font-semibold">{sortedUsers.length}</span> users
+                of <span className="font-semibold text-slate-900">{sortedUsers.length}</span> users
               </div>
               <div className="flex items-center gap-2">
                 <motion.button
-                  whileHover={{ scale: 1.1, backgroundColor: '#f3f4f6' }}
+                  whileHover={{ scale: 1.1, backgroundColor: '#f8fafc' }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
-                  className="p-2.5 rounded-xl border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="p-2.5 rounded-xl border border-slate-300 hover:border-slate-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors hover:shadow-sm"
                 >
-                  <ChevronLeft size={20} />
+                  <ChevronLeft size={20} className="text-slate-600" />
                 </motion.button>
 
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
@@ -1117,8 +1430,8 @@ export default function Users() {
                     whileTap={{ scale: 0.9 }}
                     onClick={() => setCurrentPage(page)}
                     className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${currentPage === page
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md'
-                      : 'border border-gray-300 hover:bg-gray-50 text-gray-700'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md shadow-blue-500/30'
+                      : 'border border-slate-300 hover:bg-slate-50 hover:border-slate-400 text-slate-700'
                       }`}
                   >
                     {page}
@@ -1126,13 +1439,13 @@ export default function Users() {
                 ))}
 
                 <motion.button
-                  whileHover={{ scale: 1.1, backgroundColor: '#f3f4f6' }}
+                  whileHover={{ scale: 1.1, backgroundColor: '#f8fafc' }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="p-2.5 rounded-xl border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="p-2.5 rounded-xl border border-slate-300 hover:border-slate-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors hover:shadow-sm"
                 >
-                  <ChevronRight size={20} />
+                  <ChevronRight size={20} className="text-slate-600" />
                 </motion.button>
               </div>
             </div>
@@ -1154,14 +1467,14 @@ export default function Users() {
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200"
             >
               <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
                   <motion.h2
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-xl font-bold text-gray-900"
+                    className="text-xl font-bold text-slate-900"
                   >
                     Add New User
                   </motion.h2>
@@ -1169,7 +1482,7 @@ export default function Users() {
                     whileHover={{ rotate: 90, scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={() => setShowAddModal(false)}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl"
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"
                   >
                     <X size={20} />
                   </motion.button>
@@ -1180,6 +1493,7 @@ export default function Users() {
                     { label: 'Full Name', value: newUser.name, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setNewUser({ ...newUser, name: e.target.value }), type: 'text', placeholder: 'Enter full name' },
                     { label: 'Email Address', value: newUser.email, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setNewUser({ ...newUser, email: e.target.value }), type: 'email', placeholder: 'Enter email address' },
                     { label: 'Phone Number', value: newUser.phone, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setNewUser({ ...newUser, phone: e.target.value }), type: 'tel', placeholder: 'Enter phone number' },
+                    { label: 'Password', value: newUser.password, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setNewUser({ ...newUser, password: e.target.value }), type: 'password', placeholder: 'Enter password' },
                   ].map((field, index) => (
                     <motion.div
                       key={field.label}
@@ -1187,53 +1501,34 @@ export default function Users() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
                     >
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
                         {field.label}
                       </label>
                       <input
                         type={field.type}
                         value={field.value}
                         onChange={field.onChange}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
                         placeholder={field.placeholder}
                       />
                     </motion.div>
                   ))}
-
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3 }}
-                  >
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Role
-                    </label>
-                    <select
-                      value={newUser.role}
-                      onChange={(e) => setNewUser({ ...newUser, role: e.target.value as any })}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                    >
-                      <option value="user">User</option>
-                      <option value="moderator">Moderator</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </motion.div>
                 </div>
 
-                <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-100">
+                <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-200">
                   <motion.button
-                    whileHover={{ scale: 1.05, backgroundColor: '#f3f4f6' }}
+                    whileHover={{ scale: 1.05, backgroundColor: '#f8fafc' }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setShowAddModal(false)}
-                    className="px-5 py-2.5 text-gray-600 rounded-xl transition-colors"
+                    className="px-5 py-2.5 text-slate-600 hover:text-slate-800 font-medium rounded-xl transition-colors"
                   >
                     Cancel
                   </motion.button>
                   <motion.button
-                    whileHover={{ scale: 1.05, boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.5)" }}
+                    whileHover={{ scale: 1.05, boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.3)" }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleAddUser}
-                    className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl transition-all"
+                    className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-xl transition-all"
                   >
                     Add User
                   </motion.button>
@@ -1258,14 +1553,14 @@ export default function Users() {
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200"
             >
               <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
                   <motion.h2
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-xl font-bold text-gray-900"
+                    className="text-xl font-bold text-slate-900"
                   >
                     Edit User
                   </motion.h2>
@@ -1276,7 +1571,7 @@ export default function Users() {
                       setShowEditModal(false);
                       setSelectedUser(null);
                     }}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl"
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"
                   >
                     <X size={20} />
                   </motion.button>
@@ -1293,14 +1588,14 @@ export default function Users() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
                     >
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
                         {field.label}
                       </label>
                       <input
                         type={field.type}
                         value={field.value}
                         onChange={field.onChange}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
                       />
                     </motion.div>
                   ))}
@@ -1310,7 +1605,7 @@ export default function Users() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.4 }}
                   >
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       Password (Read-only)
                     </label>
                     <div className="flex items-center gap-2">
@@ -1318,7 +1613,7 @@ export default function Users() {
                         type="text"
                         value={selectedUser.password || 'No password set'}
                         readOnly
-                        className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"
                       />
                       {selectedUser.password && (
                         <button
@@ -1326,7 +1621,7 @@ export default function Users() {
                             navigator.clipboard.writeText(selectedUser.password || '');
                             showNotificationMessage('Password copied to clipboard!');
                           }}
-                          className="px-3 py-3 bg-blue-100 text-blue-600 rounded-xl hover:bg-blue-200"
+                          className="px-3 py-3 bg-blue-100 text-blue-600 rounded-xl hover:bg-blue-200 font-medium"
                         >
                           Copy
                         </button>
@@ -1337,34 +1632,15 @@ export default function Users() {
                   <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.2 }}
-                  >
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Role
-                    </label>
-                    <select
-                      value={selectedUser.role}
-                      onChange={(e) => setSelectedUser({ ...selectedUser, role: e.target.value as any })}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                    >
-                      <option value="user">User</option>
-                      <option value="moderator">Moderator</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </motion.div>
-
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.3 }}
                   >
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       Status
                     </label>
                     <select
                       value={selectedUser.status}
                       onChange={(e) => setSelectedUser({ ...selectedUser, status: e.target.value as any })}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
                     >
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
@@ -1373,23 +1649,23 @@ export default function Users() {
                   </motion.div>
                 </div>
 
-                <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-100">
+                <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-200">
                   <motion.button
-                    whileHover={{ scale: 1.05, backgroundColor: '#f3f4f6' }}
+                    whileHover={{ scale: 1.05, backgroundColor: '#f8fafc' }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => {
                       setShowEditModal(false);
                       setSelectedUser(null);
                     }}
-                    className="px-5 py-2.5 text-gray-600 rounded-xl transition-colors"
+                    className="px-5 py-2.5 text-slate-600 hover:text-slate-800 font-medium rounded-xl transition-colors"
                   >
                     Cancel
                   </motion.button>
                   <motion.button
-                    whileHover={{ scale: 1.05, boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.5)" }}
+                    whileHover={{ scale: 1.05, boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.3)" }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleEditUser}
-                    className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl transition-all"
+                    className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-xl transition-all"
                   >
                     Save Changes
                   </motion.button>

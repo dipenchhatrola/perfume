@@ -152,39 +152,41 @@ const HeroSection: React.FC = () => {
           </motion.h2>
 
           {/* Button with Scroll Effects */}
-          <motion.button
-            className="border border-white px-12 py-4 uppercase tracking-widest text-xs hover:bg-white hover:text-black transition-all duration-500 relative overflow-hidden group"
-            variants={buttonVariants}
-            whileHover="hover"
-            whileTap="tap"
-            style={{
-              opacity: buttonOpacity,
-              scale: buttonScale
-            }}
-          >
-            {/* Button Background Effect */}
-            <motion.span
-              className="absolute inset-0 bg-white"
-              initial={{ x: "-100%" }}
-              whileHover={{ x: 0 }}
-              transition={{ duration: 0.3 }}
-            />
-
-            {/* Button Text */}
-            <span className="relative z-10 flex items-center gap-2">
-              Discover Your Aura
+          <Link to="/products" className="inline-block">
+            <motion.button
+              className="border border-white px-12 py-4 uppercase tracking-widest text-xs hover:bg-white hover:text-black transition-all duration-500 relative overflow-hidden group"
+              variants={buttonVariants}
+              whileHover="hover"
+              whileTap="tap"
+              style={{
+                opacity: buttonOpacity,
+                scale: buttonScale
+              }}
+            >
+              {/* Button Background Effect */}
               <motion.span
-                animate={{ x: [0, 5, 0] }}
-                transition={{
-                  repeat: Infinity,
-                  duration: 1.5,
-                  repeatDelay: 1
-                }}
-              >
-                <ArrowRight size={16} />
-              </motion.span>
-            </span>
-          </motion.button>
+                className="absolute inset-0 bg-white"
+                initial={{ x: "-100%" }}
+                whileHover={{ x: 0 }}
+                transition={{ duration: 0.3 }}
+              />
+
+              {/* Button Text */}
+              <span className="relative z-10 flex items-center gap-2">
+                Explore Collection
+                <motion.span
+                  animate={{ x: [0, 5, 0] }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 1.5,
+                    repeatDelay: 1
+                  }}
+                >
+                  <ArrowRight size={16} />
+                </motion.span>
+              </span>
+            </motion.button>
+          </Link>
 
           {/* Floating Elements with Scroll Interaction */}
           <motion.div
