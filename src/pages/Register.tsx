@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 
 
-const API_BASE_URL = 'https://perfume-signaturefragrance-backend.vercel.app/api';
+const API_BASE_URL = 'https://perfume-signaturefragrance.vercel.app/api';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
