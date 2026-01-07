@@ -10,7 +10,7 @@ import {
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://perfume-signaturefragrance-backend.vercel.app/api';
 
 interface UserData {
   id: string;
@@ -1677,4 +1677,5 @@ export default function Users() {
       </AnimatePresence>
     </motion.div>
   );
+
 }
