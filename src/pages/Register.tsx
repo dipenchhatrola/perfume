@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, User, Phone, Check, Facebook, Sparkles, Gift, Shield, Truck, Star, Clock } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, User, Phone, Check, Sparkles, Gift, Shield, Truck, Star, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-//import { FcGoogle } from "react-icons/fc";
 
 
 const API_BASE_URL = 'https://perfume-signaturefragrance-backend.vercel.app/api';
@@ -11,8 +10,6 @@ const API_BASE_URL = 'https://perfume-signaturefragrance-backend.vercel.app/api'
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
-    firstname: '',
-    lastname: '',
     username: '',
     password: '',
     confirmPassword: '',
@@ -48,12 +45,6 @@ const Register: React.FC = () => {
     try {
       // Redirect to backend social auth endpoint
       window.location.href = `${API_BASE_URL}/auth/${platform}`;
-
-      // OR if you want to handle it in the same page:
-      // const response = await fetch(`${API_BASE_URL}/auth/${platform}`, {
-      //   method: 'POST',
-      //   credentials: 'include' // For cookies if using sessions
-      // });
 
       toast.success(`Redirecting to ${platform} authentication...`);
     } catch (error) {
@@ -121,23 +112,6 @@ const Register: React.FC = () => {
       setIsLoading(false);
     }
   };
-
-  // const getAllUsers = () => {
-  //   try {
-  //     const usersData = localStorage.getItem('perfume_users');
-  //     if (usersData) {
-  //       const parsed = JSON.parse(usersData);
-  //       // Ensure we always return an array
-  //       return Array.isArray(parsed) ? parsed : [];
-  //     }
-  //     return [];
-  //   } catch (error) {
-  //     console.error('Error loading users:', error);
-  //     // Clear corrupted data
-  //     localStorage.removeItem('perfume_users');
-  //     return [];
-  //   }
-  // };
 
   const passwordStrength = (password: string) => {
     let strength = 0;
@@ -275,72 +249,6 @@ const Register: React.FC = () => {
                 Register Now
               </motion.h2>
 
-              {/* Social Register */}
-              {/* <motion.div className="mb-10" variants={itemVariants}>
-                <p className="text-sm text-gray-600 mb-4">Register with social account</p>
-                <div className="flex space-x-4">
-                  <motion.button
-                    onClick={() => handleSocialRegister('facebook')}
-                    className={`flex items-center justify-center w-full py-4 rounded-xl border transition-all duration-300 relative overflow-hidden ${socialRegister.facebook
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-gradient-to-r from-gray-50 to-white text-gray-700 border-gray-300 hover:border-blue-400'
-                      }`}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Facebook size={20} className="mr-3" />
-                    <span className="font-semibold">FACEBOOK</span>
-                    <motion.div
-                      className={`ml-3 w-6 h-6 rounded-full border flex items-center justify-center ${socialRegister.facebook ? 'bg-white border-white' : 'border-gray-400'
-                        }`}
-                      animate={socialRegister.facebook ? { scale: [1, 1.2, 1] } : {}}
-                      transition={{ duration: 0.3 }}
-                    >
-                      {socialRegister.facebook && <Check size={14} className="text-blue-600" />}
-                    </motion.div>
-                  </motion.button>
-
-                  <motion.button
-                    onClick={() => handleSocialRegister('google')}
-                    className={`flex items-center justify-center w-full py-4 rounded-xl border transition-all duration-300 relative overflow-hidden
-                        ${socialRegister.google
-                        ? 'bg-white text-gray-800 border-gray-300 shadow-md'
-                        : 'bg-gradient-to-r from-gray-50 to-white text-gray-700 border-gray-300 hover:border-red-400'
-                      }`}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <FcGoogle size={22} className="mr-3" />
-                    <span className="font-semibold">GOOGLE</span>
-
-                    <motion.div
-                      className={`ml-3 w-6 h-6 rounded-full border flex items-center justify-center
-                        ${socialRegister.google ? 'bg-green-500 border-green-500' : 'border-gray-400'}
-                      `}
-                      animate={socialRegister.google ? { scale: [1, 1.2, 1] } : {}}
-                      transition={{ duration: 0.3 }}
-                    >
-                      {socialRegister.google && <Check size={14} className="text-white" />}
-                    </motion.div>
-                  </motion.button>
-                </div>
-              </motion.div> */}
-
-              {/* Divider */}
-              {/* <motion.div
-                className="relative mb-10"
-                variants={itemVariants}
-              >
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white text-gray-500 font-medium">
-                    Or register with email
-                  </span>
-                </div>
-              </motion.div> */}
-
               <form onSubmit={handleSubmit} className="space-y-8">
                 {/* Email Field */}
                 <motion.div variants={itemVariants}>
@@ -367,60 +275,6 @@ const Register: React.FC = () => {
                       placeholder="you@example.com"
                     />
                   </motion.div>
-                </motion.div>
-
-                <motion.div className="mb-10" variants={itemVariants}>
-                  <div className="flex space-x-4">
-                    <motion.div variants={itemVariants}>
-                      <label className="block text-sm font-medium text-gray-700 mb-3">
-                        First Name *
-                      </label>
-                      <motion.div
-                        className="relative"
-                        animate={activeField === 'firstname' ? { scale: 1.005 } : {}}
-                      >
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                          <User size={20} className={`transition-colors ${activeField === 'firstname' ? 'text-purple-600' : 'text-gray-400'}`} />
-                        </div>
-                        <input
-                          type="text"
-                          name="firstname"
-                          value={formData.firstname}
-                          onChange={handleChange}
-                          onFocus={() => setActiveField('firstname')}
-                          onBlur={() => setActiveField(null)}
-                          required
-                          className="w-full pl-12 pr-4 py-4 border-2 border-gray-300 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-300 bg-white/70 hover:bg-white text-base shadow-sm hover:shadow-md"
-                          placeholder="First name"
-                        />
-                      </motion.div>
-                    </motion.div>
-
-                    <motion.div variants={itemVariants}>
-                      <label className="block text-sm font-medium text-gray-700 mb-3">
-                        Last Name *
-                      </label>
-                      <motion.div
-                        className="relative"
-                        animate={activeField === 'lastname' ? { scale: 1.005 } : {}}
-                      >
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                          <User size={20} className={`transition-colors ${activeField === 'lastname' ? 'text-purple-600' : 'text-gray-400'}`} />
-                        </div>
-                        <input
-                          type="text"
-                          name="lastname"
-                          value={formData.lastname}
-                          onChange={handleChange}
-                          onFocus={() => setActiveField('lastname')}
-                          onBlur={() => setActiveField(null)}
-                          required
-                          className="w-full pl-12 pr-4 py-4 border-2 border-gray-300 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-300 bg-white/70 hover:bg-white text-base shadow-sm hover:shadow-md"
-                          placeholder="Last name"
-                        />
-                      </motion.div>
-                    </motion.div>
-                  </div>
                 </motion.div>
 
                 {/* Username Field */}
