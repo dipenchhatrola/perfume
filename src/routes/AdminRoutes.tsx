@@ -17,24 +17,54 @@ export default function AdminRoutes() {
         <Route path="login" element={<AdminLogin />} />
         <Route path="register" element={<AdminRegister />} />
 
-        {/* 🔐 PROTECTED ADMIN AREA */}
+        {/* 🔐 PROTECTED ROUTES */}
         <Route
-          path="/"
+          path="dashboard"
           element={
             <AdminProtectedRoute>
-              <AdminLayout />
+              <AdminLayout>
+                <Dashboard />
+              </AdminLayout>
             </AdminProtectedRoute>
           }
-        >
-          <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="orders" element={<Orders />} />
-          <Route path="products" element={<Products />} />
-          <Route path="users" element={<Users />} />
-        </Route>
+        />
 
-        {/* FALLBACK */}
-        <Route path="*" element={<Navigate to="login" replace />} />
+        <Route
+          path="orders"
+          element={
+            <AdminProtectedRoute>
+              <AdminLayout>
+                <Orders />
+              </AdminLayout>
+            </AdminProtectedRoute>
+          }
+        />
+
+        <Route
+          path="products"
+          element={
+            <AdminProtectedRoute>
+              <AdminLayout>
+                <Products />
+              </AdminLayout>
+            </AdminProtectedRoute>
+          }
+        />
+
+        <Route
+          path="users"
+          element={
+            <AdminProtectedRoute>
+              <AdminLayout>
+                <Users />
+              </AdminLayout>
+            </AdminProtectedRoute>
+          }
+        />
+
+        {/* DEFAULT REDIRECT */}
+        <Route path="/" element={<Navigate to="login" replace />} />
+        <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>
     </AdminAuthProvider>
   );
