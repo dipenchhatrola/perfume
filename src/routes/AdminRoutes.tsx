@@ -5,27 +5,18 @@ import Products from "../admin/pages/AdminProducts";
 import Users from "../admin/pages/AdminUsers";
 import AdminLogin from "../admin/pages/AdminLogin";
 import AdminRegister from "../admin/pages/AdminRegister";
-import AdminProtectedRoute from "../admin/components/AdminProtectedRoute";
 import AdminLayout from "../admin/components/AdminLayout";
 import { AdminAuthProvider } from "context/AdminAuthContext";
 
 export default function AdminRoutes() {
   return (
-    <AdminAuthProvider>
+    <AdminAuthProvider> 
       <Routes>
-        {/* 🔓 PUBLIC ROUTES */}
+        {/* PUBLIC ROUTES */}
         <Route path="login" element={<AdminLogin />} />
         <Route path="register" element={<AdminRegister />} />
 
-        {/* 🔐 PROTECTED ROUTES */}
-        <Route
-          path="/"
-          element={
-            <AdminProtectedRoute>
-              <AdminLayout />
-            </AdminProtectedRoute>
-          }
-        >
+        <Route path="/" element={<AdminLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="orders" element={<Orders />} />
@@ -33,10 +24,8 @@ export default function AdminRoutes() {
           <Route path="users" element={<Users />} />
         </Route>
 
-        {/* DEFAULT REDIRECT for non-matching routes */}
-        <Route path="*" element={<Navigate to="/admin/login" replace />} />
+        <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>
     </AdminAuthProvider>
   );
 }
-
