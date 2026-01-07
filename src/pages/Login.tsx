@@ -1032,24 +1032,6 @@ const Login: React.FC = () => {
                 </motion.div>
               </form>
 
-              {/* Test Credentials Demo */}
-              <motion.div
-                className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
-              >
-                <p className="text-sm font-medium text-gray-700 mb-2">For Testing:</p>
-                <div className="text-xs text-gray-600 space-y-1">
-                  <p><span className="font-semibold">Mobile:</span> 9876543210</p>
-                  <p><span className="font-semibold">Email:</span> test@example.com</p>
-                  <p><span className="font-semibold">Password:</span> password123</p>
-                  <div className="mt-2">
-                    <p className="text-purple-600">✓ Auto-created test user available</p>
-                  </div>
-                </div>
-              </motion.div>
-
               {/* Sign Up Link */}
               <motion.div
                 className="mt-8 pt-6 border-t border-gray-100 text-center"
