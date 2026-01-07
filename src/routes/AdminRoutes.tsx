@@ -18,7 +18,6 @@ export default function AdminRoutes() {
         <Route path="register" element={<AdminRegister />} />
 
         {/* 🔐 PROTECTED ROUTES */}
-        {/* Wrap all protected routes in a single AdminLayout */}
         <Route
           path="/"
           element={
@@ -27,16 +26,11 @@ export default function AdminRoutes() {
             </AdminProtectedRoute>
           }
         >
-          {/* Index route - defaults to dashboard when /admin is accessed */}
           <Route index element={<Navigate to="dashboard" replace />} />
-          
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="orders" element={<Orders />} />
           <Route path="products" element={<Products />} />
           <Route path="users" element={<Users />} />
-          
-          {/* Catch-all route for admin section */}
-          <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Route>
 
         {/* DEFAULT REDIRECT for non-matching routes */}
@@ -45,3 +39,4 @@ export default function AdminRoutes() {
     </AdminAuthProvider>
   );
 }
+
