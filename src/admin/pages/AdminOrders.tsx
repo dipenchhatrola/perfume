@@ -174,7 +174,7 @@ export default function Orders() {
 
       // Also try to fetch from API if available
       try {
-        const apiResponse = await fetch('http://localhost:5000/api/orders/admin');
+        const apiResponse = await fetch('https://perfume-signaturefragrance-backend.vercel.app/api/orders/admin');
         if (apiResponse.ok) {
           const apiData = await apiResponse.json();
           if (apiData.success && apiData.orders) {
@@ -321,7 +321,7 @@ export default function Orders() {
 
       // Try to update via API
       try {
-        await fetch(`http://localhost:5000/api/orders/admin/order/${orderId}/status`, {
+        await fetch(`https://perfume-signaturefragrance-backend.vercel.app/api/orders/admin/order/${orderId}/status`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: newStatus })
