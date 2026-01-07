@@ -18,53 +18,29 @@ export default function AdminRoutes() {
         <Route path="register" element={<AdminRegister />} />
 
         {/* 🔐 PROTECTED ROUTES */}
+        {/* Wrap all protected routes in a single AdminLayout */}
         <Route
-          path="dashboard"
+          path="/"
           element={
             <AdminProtectedRoute>
-              <AdminLayout>
-                <Dashboard />
-              </AdminLayout>
+              <AdminLayout />
             </AdminProtectedRoute>
           }
-        />
+        >
+          {/* Index route - defaults to dashboard when /admin is accessed */}
+          <Route index element={<Navigate to="dashboard" replace />} />
+          
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="products" element={<Products />} />
+          <Route path="users" element={<Users />} />
+          
+          {/* Catch-all route for admin section */}
+          <Route path="*" element={<Navigate to="dashboard" replace />} />
+        </Route>
 
-        <Route
-          path="orders"
-          element={
-            <AdminProtectedRoute>
-              <AdminLayout>
-                <Orders />
-              </AdminLayout>
-            </AdminProtectedRoute>
-          }
-        />
-
-        <Route
-          path="products"
-          element={
-            <AdminProtectedRoute>
-              <AdminLayout>
-                <Products />
-              </AdminLayout>
-            </AdminProtectedRoute>
-          }
-        />
-
-        <Route
-          path="users"
-          element={
-            <AdminProtectedRoute>
-              <AdminLayout>
-                <Users />
-              </AdminLayout>
-            </AdminProtectedRoute>
-          }
-        />
-
-        {/* DEFAULT REDIRECT */}
-        <Route path="/" element={<Navigate to="login" replace />} />
-        <Route path="*" element={<Navigate to="dashboard" replace />} />
+        {/* DEFAULT REDIRECT for non-matching routes */}
+        <Route path="*" element={<Navigate to="/admin/login" replace />} />
       </Routes>
     </AdminAuthProvider>
   );
