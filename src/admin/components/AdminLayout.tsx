@@ -1,7 +1,7 @@
 import Sidebar from "./Sidebar";
 import AdminNavbar from "./AdminNavbar";
 import { useAdminAuth } from "../../context/AdminAuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Outlet } from "react-router-dom";
 import { useState } from "react";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
@@ -44,12 +44,13 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
         {/* Main Content with proper scroll */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50">
           <div className="w-full max-w-full">
-            {children}
+            {children || <Outlet />}
           </div>
         </main>
       </div>
     </div>
   );
 };
+
 
 export default AdminLayout;
