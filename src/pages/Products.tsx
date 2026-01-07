@@ -5,11 +5,10 @@ import { useWishlist } from '../context/WishlistContext';
 import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import api from '../api/api';
-//import axios from 'axios';
+import axios from 'axios';
 
 // ✅ Correct API URL - same as AdminProducts.tsx
-//const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://perfume-signaturefragrance-backend.vercel.app/api';
 
 interface Product {
   _id: string;
@@ -43,20 +42,20 @@ const ProductsPage = () => {
       setError(null);
 
       // ✅ Correct API call - same as AdminProducts.tsx
-      const response = await api.get('/api/product');
+      const response = await axios.get(`${API_BASE_URL}/product`);
 
       console.log('API Response:', response.data);
 
       if (response.data.success) {
         const fetchedProducts = response.data.products || [];
-
+        
         // ✅ Ensure image URLs are properly formatted
         const productsWithFullUrls = fetchedProducts.map((product: Product) => ({
           ...product,
           // Add base URL if image path is relative
           image: product.image.startsWith('http')
             ? product.image
-            : `${process.env.REACT_APP_API_URL}${product.image.startsWith('/') ? '' : '/'}${product.image}`
+            : `https://perfume-signaturefragrance-backend.vercel.app${product.image.startsWith('/') ? '' : '/'}${product.image}`
         }));
 
         console.log('Processed products:', productsWithFullUrls);
@@ -84,7 +83,7 @@ const ProductsPage = () => {
       rating: product.rating,
       quantity: 1
     };
-
+    
     addToCart(cartProduct);
     toast.success(`${product.name} added to cart!`);
   };
@@ -111,7 +110,7 @@ const ProductsPage = () => {
   };
 
   // Filter products based on active category
-  const filteredProducts = products.filter(p =>
+  const filteredProducts = products.filter(p => 
     activeCategory === 'All' || p.family === activeCategory
   );
 
@@ -131,9 +130,9 @@ const ProductsPage = () => {
   };
 
   const itemVariants = {
-    hidden: {
-      opacity: 0,
-      y: 20
+    hidden: { 
+      opacity: 0, 
+      y: 20 
     },
     visible: {
       opacity: 1,
@@ -209,7 +208,7 @@ const ProductsPage = () => {
 
   if (loading) {
     return (
-      <motion.div
+      <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="min-h-screen bg-[#FDFCFB] pt-24 pb-12 px-6 flex justify-center items-center"
@@ -224,7 +223,7 @@ const ProductsPage = () => {
 
   if (error) {
     return (
-      <motion.div
+      <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="min-h-screen bg-[#FDFCFB] pt-24 pb-12 px-6 flex justify-center items-center"
@@ -237,7 +236,7 @@ const ProductsPage = () => {
           </div>
           <h3 className="text-xl font-bold text-stone-800 mb-2">Failed to Load Products</h3>
           <p className="text-stone-600 mb-4">{error}</p>
-          <button
+          <button 
             onClick={fetchProducts}
             className="bg-black text-white px-6 py-2 rounded hover:bg-stone-800 transition"
           >
@@ -249,7 +248,7 @@ const ProductsPage = () => {
   }
 
   return (
-    <motion.div
+    <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
@@ -257,14 +256,14 @@ const ProductsPage = () => {
     >
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-12">
         {/* Sidebar Filters */}
-        <motion.aside
+        <motion.aside 
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.4 }}
           className="w-full lg:w-64 space-y-8"
         >
           <div>
-            <motion.h3
+            <motion.h3 
               whileHover={{ x: 2 }}
               className="text-xs uppercase tracking-[0.2em] font-bold mb-4 flex items-center"
             >
@@ -272,7 +271,7 @@ const ProductsPage = () => {
             </motion.h3>
             <ul className="space-y-3 text-sm">
               {allCategories.map(cat => (
-                <motion.li
+                <motion.li 
                   key={cat}
                   variants={categoryVariants}
                   initial="inactive"
@@ -281,19 +280,19 @@ const ProductsPage = () => {
                   className={`cursor-pointer transition ${activeCategory === cat ? 'text-black font-semibold' : 'text-stone-600'}`}
                   onClick={() => setActiveCategory(cat)}
                 >
-                  {cat}
+                  {cat} 
                   <span className="text-xs text-stone-400 ml-2">
                     ({cat === 'All' ? products.length : products.filter(p => p.family === cat).length})
                   </span>
                 </motion.li>
               ))}
             </ul>
-          </div>
+          </div>          
         </motion.aside>
 
         {/* Product Grid */}
         <main className="flex-1">
-          <motion.div
+          <motion.div 
             initial={{ y: -10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
@@ -314,8 +313,8 @@ const ProductsPage = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Link
-                  to="/wishlist"
+                <Link 
+                  to="/wishlist" 
                   className="text-xs uppercase tracking-widest hover:text-black transition flex items-center"
                 >
                   <Heart className="w-3 h-3 mr-1" />
@@ -326,8 +325,8 @@ const ProductsPage = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Link
-                  to="/cart"
+                <Link 
+                  to="/cart" 
                   className="text-xs uppercase tracking-widest hover:text-black transition flex items-center"
                 >
                   <ShoppingBag className="w-3 h-3 mr-1" />
@@ -350,8 +349,8 @@ const ProductsPage = () => {
                 </div>
                 <h3 className="text-xl font-bold text-stone-800 mb-2">No Products Found</h3>
                 <p className="text-stone-600 mb-6">
-                  {activeCategory === 'All'
-                    ? 'No products available'
+                  {activeCategory === 'All' 
+                    ? 'No products available' 
                     : `No products found in "${activeCategory}" category`
                   }
                 </p>
@@ -365,7 +364,7 @@ const ProductsPage = () => {
                 )}
               </motion.div>
             ) : (
-              <motion.div
+              <motion.div 
                 key={activeCategory}
                 variants={containerVariants}
                 initial="hidden"
@@ -375,9 +374,9 @@ const ProductsPage = () => {
               >
                 {filteredProducts.map((product) => {
                   const isProductInWishlist = isInWishlist(product._id);
-
+                  
                   return (
-                    <motion.div
+                    <motion.div 
                       key={product._id}
                       variants={itemVariants}
                       initial="hidden"
@@ -386,13 +385,13 @@ const ProductsPage = () => {
                       className="group flex flex-col"
                     >
                       {/* Image Container */}
-                      <motion.div
+                      <motion.div 
                         variants={imageVariants}
                         className="relative aspect-[3/4] overflow-hidden bg-stone-100 mb-6"
                       >
-                        <motion.img
-                          src={product.image}
-                          alt={product.name}
+                        <motion.img 
+                          src={product.image} 
+                          alt={product.name} 
                           className="w-full h-full object-cover"
                           whileHover={{ scale: 1.05 }}
                           transition={{ duration: 0.4 }}
@@ -401,52 +400,55 @@ const ProductsPage = () => {
                             (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1547887538-e3a2f32cb1cc?q=80&w=800&auto=format&fit=crop';
                           }}
                         />
-
+                        
                         {/* Stock Badge */}
                         {product.quantity <= 0 && (
                           <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 text-xs uppercase tracking-widest">
                             Out of Stock
                           </div>
                         )}
-
+                        
                         {/* Hover Actions */}
-                        <motion.div
+                        <motion.div 
                           variants={buttonVariants}
                           initial="hidden"
                           whileHover="hover"
                           className="absolute inset-0 bg-black/5 flex items-end p-4"
                         >
-                          <motion.button
+                          <motion.button 
                             variants={buttonVariants}
                             whileHover="hover"
                             whileTap="tap"
                             onClick={() => handleQuickAdd(product)}
                             disabled={product.quantity <= 0}
-                            className={`w-full py-3 text-xs uppercase tracking-widest transition duration-300 shadow-xl ${product.quantity <= 0
+                            className={`w-full py-3 text-xs uppercase tracking-widest transition duration-300 shadow-xl ${
+                              product.quantity <= 0
                                 ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
                                 : 'bg-white text-black hover:bg-black hover:text-white'
-                              }`}
+                            }`}
                           >
                             {product.quantity <= 0 ? 'Out of Stock' : 'Quick Add'}
                           </motion.button>
                         </motion.div>
-
+                        
                         {/* Wishlist Button */}
-                        <motion.button
+                        <motion.button 
                           variants={heartVariants}
                           initial="hidden"
                           whileHover="hover"
                           whileTap="tap"
                           onClick={() => handleWishlistToggle(product)}
-                          className={`absolute top-4 right-4 p-2 backdrop-blur-sm rounded-full ${isProductInWishlist
-                              ? 'bg-red-500/90 hover:bg-red-600'
+                          className={`absolute top-4 right-4 p-2 backdrop-blur-sm rounded-full ${
+                            isProductInWishlist 
+                              ? 'bg-red-500/90 hover:bg-red-600' 
                               : 'bg-white/80 hover:bg-white'
-                            } transition-colors duration-300`}
+                          } transition-colors duration-300`}
                         >
-                          <Heart className={`w-4 h-4 ${isProductInWishlist
-                              ? 'fill-white text-white'
+                          <Heart className={`w-4 h-4 ${
+                            isProductInWishlist 
+                              ? 'fill-white text-white' 
                               : 'text-stone-600'
-                            }`} />
+                          }`} />
                         </motion.button>
                       </motion.div>
 
@@ -456,7 +458,7 @@ const ProductsPage = () => {
                           <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400 mb-1">
                             {product.family}
                           </p>
-                          <motion.h2
+                          <motion.h2 
                             whileHover={{ x: 2 }}
                             className="text-lg font-serif mb-2"
                           >
@@ -480,29 +482,30 @@ const ProductsPage = () => {
                             Stock: {product.quantity}
                           </p>
                         </div>
-                        <motion.span
+                        <motion.span 
                           whileHover={{ scale: 1.1 }}
                           className="font text-lg"
                         >
                           ₹{product.price}
                         </motion.span>
                       </div>
-
+                      
                       {/* Product Description */}
                       <p className="text-sm text-stone-600 mt-2 line-clamp-2">
                         {product.description || 'Premium fragrance with exquisite notes.'}
                       </p>
-
+                      
                       {/* Add to Cart Button (Visible on mobile) */}
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handleQuickAdd(product)}
                         disabled={product.quantity <= 0}
-                        className={`md:hidden mt-4 py-2 text-xs uppercase tracking-widest transition ${product.quantity <= 0
+                        className={`md:hidden mt-4 py-2 text-xs uppercase tracking-widest transition ${
+                          product.quantity <= 0
                             ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
                             : 'bg-black text-white hover:bg-stone-800'
-                          }`}
+                        }`}
                       >
                         {product.quantity <= 0 ? 'Out of Stock' : 'Add to Cart'}
                       </motion.button>
