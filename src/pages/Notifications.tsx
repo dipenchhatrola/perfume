@@ -48,7 +48,7 @@ const Notifications: React.FC = () => {
   /* ---------------- FETCH ---------------- */
   const fetchNotifications = async () => {
     const res = await fetch(
-      `http://localhost:5000/api/notifications/${userId}`
+      `https://perfume-signaturefragrance-backend.vercel.app/api/notifications/${userId}`
     );
     const data = await res.json();
     setNotifications(data);
@@ -60,7 +60,7 @@ const Notifications: React.FC = () => {
 
   /* ---------------- ACTIONS ---------------- */
   const markAsRead = async (id: string) => {
-    await fetch(`http://localhost:5000/api/notifications/read/${id}`, {
+    await fetch(`https://perfume-signaturefragrance-backend.vercel.app/api/notifications/read/${id}`, {
       method: 'PUT'
     });
 
@@ -71,7 +71,7 @@ const Notifications: React.FC = () => {
 
   const markAllAsRead = async () => {
     await fetch(
-      `http://localhost:5000/api/notifications/read-all/${userId}`,
+      `https://perfume-signaturefragrance-backend.vercel.app/api/notifications/read-all/${userId}`,
       { method: 'PUT' }
     );
 

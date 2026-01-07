@@ -494,12 +494,7 @@ const Profile: React.FC = () => {
                   <div className="flex-1">
                     <AnimatePresence mode="wait">
                       {isEditing ? (
-                        <motion.div
-                          key="edit-form"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          //transition={{ duration: 0.2 }}
+                        <div                        
                           className="space-y-4"
                         >
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -528,7 +523,7 @@ const Profile: React.FC = () => {
                               />
                             </motion.div>
                           </div>
-                        </motion.div>
+                        </div>
                       ) : (
                         <motion.div
                           key="display-info"

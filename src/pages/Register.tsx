@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, User, Phone, Check, Facebook, Sparkles, Gift, Shield, Truck, Star, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { FcGoogle } from "react-icons/fc";
+//import { FcGoogle } from "react-icons/fc";
 
 
 const API_BASE_URL = 'https://perfume-signaturefragrance-backend.vercel.app/api';
@@ -11,6 +11,8 @@ const API_BASE_URL = 'https://perfume-signaturefragrance-backend.vercel.app/api'
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
+    firstname: '',
+    lastname: '',
     username: '',
     password: '',
     confirmPassword: '',
@@ -274,7 +276,7 @@ const Register: React.FC = () => {
               </motion.h2>
 
               {/* Social Register */}
-              <motion.div className="mb-10" variants={itemVariants}>
+              {/* <motion.div className="mb-10" variants={itemVariants}>
                 <p className="text-sm text-gray-600 mb-4">Register with social account</p>
                 <div className="flex space-x-4">
                   <motion.button
@@ -322,10 +324,10 @@ const Register: React.FC = () => {
                     </motion.div>
                   </motion.button>
                 </div>
-              </motion.div>
+              </motion.div> */}
 
               {/* Divider */}
-              <motion.div
+              {/* <motion.div
                 className="relative mb-10"
                 variants={itemVariants}
               >
@@ -337,7 +339,7 @@ const Register: React.FC = () => {
                     Or register with email
                   </span>
                 </div>
-              </motion.div>
+              </motion.div> */}
 
               <form onSubmit={handleSubmit} className="space-y-8">
                 {/* Email Field */}
@@ -365,6 +367,60 @@ const Register: React.FC = () => {
                       placeholder="you@example.com"
                     />
                   </motion.div>
+                </motion.div>
+
+                <motion.div className="mb-10" variants={itemVariants}>
+                  <div className="flex space-x-4">
+                    <motion.div variants={itemVariants}>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        First Name *
+                      </label>
+                      <motion.div
+                        className="relative"
+                        animate={activeField === 'firstname' ? { scale: 1.005 } : {}}
+                      >
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <User size={20} className={`transition-colors ${activeField === 'firstname' ? 'text-purple-600' : 'text-gray-400'}`} />
+                        </div>
+                        <input
+                          type="text"
+                          name="firstname"
+                          value={formData.firstname}
+                          onChange={handleChange}
+                          onFocus={() => setActiveField('firstname')}
+                          onBlur={() => setActiveField(null)}
+                          required
+                          className="w-full pl-12 pr-4 py-4 border-2 border-gray-300 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-300 bg-white/70 hover:bg-white text-base shadow-sm hover:shadow-md"
+                          placeholder="First name"
+                        />
+                      </motion.div>
+                    </motion.div>
+
+                    <motion.div variants={itemVariants}>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        Last Name *
+                      </label>
+                      <motion.div
+                        className="relative"
+                        animate={activeField === 'lastname' ? { scale: 1.005 } : {}}
+                      >
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <User size={20} className={`transition-colors ${activeField === 'lastname' ? 'text-purple-600' : 'text-gray-400'}`} />
+                        </div>
+                        <input
+                          type="text"
+                          name="lastname"
+                          value={formData.lastname}
+                          onChange={handleChange}
+                          onFocus={() => setActiveField('lastname')}
+                          onBlur={() => setActiveField(null)}
+                          required
+                          className="w-full pl-12 pr-4 py-4 border-2 border-gray-300 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-300 bg-white/70 hover:bg-white text-base shadow-sm hover:shadow-md"
+                          placeholder="Last name"
+                        />
+                      </motion.div>
+                    </motion.div>
+                  </div>
                 </motion.div>
 
                 {/* Username Field */}
