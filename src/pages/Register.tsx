@@ -78,6 +78,7 @@ const Register: React.FC = () => {
         username: formData.username,
         email: formData.email,
         password: formData.password,
+        phone: formData.phone,
       });
    
       const result = response;
