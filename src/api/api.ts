@@ -24,7 +24,7 @@ export const registerUser = async (userData: {
   email: string;
   password: string;
 }) => {
-  const response = await axios.post(`${API_BASE_URL}/users/register`, userData);
+  const response = await axios.post(`${API_BASE_URL}/api/users/register`, userData);
   return response.data;
 };
 
@@ -55,4 +55,5 @@ export const createOrder = async (orderData: any) => {
     throw error;
   }
 };
+
 
