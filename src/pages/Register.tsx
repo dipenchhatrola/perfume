@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, User, Phone, Check, Sparkles, Gift, Shield, Truck, Star, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import { registerUser } from 'api/api';
 
 
 const API_BASE_URL = 'https://perfume-signaturefragrance-backend.vercel.app';
@@ -71,43 +72,33 @@ const Register: React.FC = () => {
     }
 
     setIsLoading(true);
+
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          username: formData.username,
-          password: formData.password,
-          phone: formData.phone,
-        }),
+      const response = await registerUser({
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
       });
-
-      const result = await response.json(); // Rename to result
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Registration failed');
-      }
-
+   
+      const result = response;
+      console.log("Registration Response:", result);
       // ✅ CORRECTION HERE: Access data from result.data
-      if (result.success && result.data) {
+      if (result.success) {
         // Save user data and token in localStorage
-        localStorage.setItem('perfume_user', JSON.stringify(result.data.user));
-        localStorage.setItem('auth_token', result.data.token);
+        localStorage.setItem('perfume_user', JSON.stringify(result.user));
+        localStorage.setItem('auth_token', result.token);
         localStorage.setItem('isLoggedIn', 'true');
 
         // Success animation
         toast.success(result.message || 'Registration successful! Welcome to PERFUME.');
-
         navigate('/profile', { replace: true });
       } else {
+        console.error('Registration error:', result);
         throw new Error(result.message || 'Registration failed');
       }
-
     } catch (error: any) {
-      toast.error(error.message || 'Registration failed. Please try again.');
+      console.error('Registration error:', error);
+      toast.error(error.response.data.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -121,10 +112,6 @@ const Register: React.FC = () => {
     if (/[^A-Za-z0-9]/.test(password)) strength++;
     return strength;
   };
-
-  const strength = passwordStrength(formData.password);
-  const strengthColors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500'];
-  const strengthText = ['Weak', 'Fair', 'Good', 'Strong'];
 
   const containerVariants = {
     hidden: { opacity: 0 },
