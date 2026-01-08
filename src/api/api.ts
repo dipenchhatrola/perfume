@@ -23,6 +23,7 @@ export const registerUser = async (userData: {
   username: string;
   email: string;
   password: string;
+  phone: string;
 }) => {
   const response = await axios.post(`${API_BASE_URL}/api/users/register`, userData);
   return response.data;
@@ -55,5 +56,6 @@ export const createOrder = async (orderData: any) => {
     throw error;
   }
 };
+
 
 
